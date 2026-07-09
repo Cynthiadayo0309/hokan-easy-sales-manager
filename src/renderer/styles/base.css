@@ -266,8 +266,10 @@ a {
 }
 
 .message.success {
+  border: 1px solid #8ccdaa;
   background: #e6f5ec;
   color: #20613b;
+  box-shadow: 0 1px 2px rgb(32 97 59 / 12%);
 }
 
 .message {
@@ -276,6 +278,33 @@ a {
   background: #f6f7f9;
   padding: 16px;
   font-weight: 700;
+}
+
+.save-toast {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 20;
+  display: grid;
+  gap: 4px;
+  width: min(360px, calc(100vw - 56px));
+  margin: 0;
+  border: 1px solid #8ccdaa;
+  border-left: 8px solid #2d8550;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgb(29 39 51 / 18%);
+  color: #174d2f;
+  padding: 16px 18px;
+  line-height: 1.6;
+  font-weight: 700;
+}
+
+.save-toast::before {
+  content: '保存完了';
+  color: #20613b;
+  font-size: 13px;
+  letter-spacing: 0;
 }
 
 .setup-shell {

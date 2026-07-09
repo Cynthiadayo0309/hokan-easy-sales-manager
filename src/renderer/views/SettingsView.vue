@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
+import { useSaveFeedback } from '@/composables/useSaveFeedback';
 import type { Facility, MonthlyTarget, NursingCategory, RateSetting } from '@shared/types/app-api';
 
 type SettingsTab = 'facilities' | 'rates' | 'targets';
@@ -18,6 +19,7 @@ const loading = ref(true);
 const saving = ref(false);
 const message = ref<string | null>(null);
 const errorMessage = ref<string | null>(null);
+const { clearSaveFeedback, saveFeedback, showSaveFeedback } = useSaveFeedback();
 const selectedMonth = ref(new Date().toISOString().slice(0, 7));
 const rateValidFrom = computed(() => `${selectedMonth.value}-01`);
 const effectiveRates = ref<RateSetting[]>([]);
@@ -156,6 +158,7 @@ async function loadTargets(): Promise<void> {
 
 async function loadSettings(): Promise<void> {
   loading.value = true;
+  clearSaveFeedback();
   try {
     const setupStatus = await window.hokanApp.setup.getStatus();
     nursingCategories.value = setupStatus.nursingCategories;
@@ -182,10 +185,12 @@ async function updateFacility(facility: Facility): Promise<void> {
       name: facility.name,
       displayOrder: facility.displayOrder
     });
+    showSaveFeedback(`${facility.name}の施設名`);
     setMessage('施設名を保存しました。');
     await loadFacilities();
     await loadTargets();
   } catch {
+    clearSaveFeedback();
     setError('施設名を保存できませんでした。1文字以上40文字以内で入力してください。');
   } finally {
     saving.value = false;
@@ -202,10 +207,12 @@ async function addFacility(): Promise<void> {
   try {
     await window.hokanApp.facilities.create({ name: newFacilityName.value });
     newFacilityName.value = '';
+    showSaveFeedback('施設');
     setMessage('施設を追加しました。');
     facilities.value = await window.hokanApp.facilities.list();
     await loadTargets();
   } catch {
+    clearSaveFeedback();
     setError(
       '施設を追加できませんでした。施設名を確認し、アプリを開き直してもう一度お試しください。'
     );
@@ -223,9 +230,11 @@ async function restoreDefaultFacilities(): Promise<void> {
 
   try {
     facilities.value = await window.hokanApp.facilities.restoreDefaults();
+    showSaveFeedback('初期施設');
     setMessage('初期施設を復旧しました。施設名を必要に応じて変更してください。');
     await loadTargets();
   } catch {
+    clearSaveFeedback();
     setError('初期施設を復旧できませんでした。アプリを開き直してもう一度お試しください。');
   } finally {
     saving.value = false;
@@ -246,10 +255,12 @@ async function deactivateFacility(facility: Facility): Promise<void> {
 
   try {
     await window.hokanApp.facilities.deactivate({ id: facility.id });
+    showSaveFeedback(`${facility.name}の施設設定`);
     setMessage('施設を停止しました。');
     await loadFacilities();
     await loadTargets();
   } catch {
+    clearSaveFeedback();
     setError('施設を停止できませんでした。もう一度お試しください。');
   } finally {
     saving.value = false;
@@ -271,9 +282,11 @@ async function saveRates(): Promise<void> {
         amountThousandYen: rateInputs.value[rateKey(category.id)] ?? '0'
       }))
     });
+    showSaveFeedback('売上単価');
     setMessage('売上単価を保存しました。');
     await loadRates();
   } catch {
+    clearSaveFeedback();
     setError('売上単価を保存できませんでした。0以上の数字で、小数は1桁まで入力してください。');
   } finally {
     saving.value = false;
@@ -302,9 +315,11 @@ async function saveTargets(): Promise<void> {
         })
       )
     });
+    showSaveFeedback('月間目標');
     setMessage('月間目標を保存しました。');
     await loadTargets();
   } catch {
+    clearSaveFeedback();
     setError(
       '月間目標を保存できませんでした。人数は0以上の整数、売上は千円単位で入力してください。'
     );
@@ -360,6 +375,9 @@ onMounted(() => {
 
     <p v-if="message" class="message success" aria-live="polite">{{ message }}</p>
     <p v-if="errorMessage" class="message error" aria-live="assertive">{{ errorMessage }}</p>
+    <p v-if="saveFeedback" class="save-toast" role="status" aria-live="polite">
+      {{ saveFeedback }}
+    </p>
 
     <div class="settings-tabs" role="tablist" aria-label="設定メニュー">
       <button

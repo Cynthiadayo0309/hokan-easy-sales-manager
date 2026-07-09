@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
+import { useSaveFeedback } from '@/composables/useSaveFeedback';
 import { calculateEntryDetail, calculateEntrySummary } from '@shared/calculations/entries';
 import { weeklyEntryStatusLabel } from '@shared/calculations/entry-status';
 import type {
@@ -28,6 +29,7 @@ const loading = ref(true);
 const saving = ref(false);
 const message = ref<string | null>(null);
 const errorMessage = ref<string | null>(null);
+const { clearSaveFeedback, saveFeedback, showSaveFeedback } = useSaveFeedback();
 
 const targetMonth = computed(() => `${selectedMonth.value}-01`);
 const monthLabel = computed(() => {
@@ -161,6 +163,7 @@ async function loadMonth(): Promise<void> {
   loading.value = true;
   message.value = null;
   errorMessage.value = null;
+  clearSaveFeedback();
 
   try {
     const setupStatus = await window.hokanApp.setup.getStatus();
@@ -185,10 +188,12 @@ async function selectFacility(facilityId: number): Promise<void> {
   selectedFacilityId.value = facilityId;
   message.value = null;
   errorMessage.value = null;
+  clearSaveFeedback();
   await loadEntry();
 }
 
 function updatePeople(categoryId: number, rawValue: string): void {
+  clearSaveFeedback();
   const detail = getInputDetail(categoryId);
   const nextValue = rawValue === '' ? null : Number(rawValue);
 
@@ -210,6 +215,7 @@ function setAllZero(): void {
     return;
   }
 
+  clearSaveFeedback();
   formDetails.value = formDetails.value.map((detail) => ({
     ...detail,
     peopleCount: 0
@@ -237,15 +243,24 @@ async function saveDraft(moveNext = false): Promise<void> {
   saving.value = true;
 
   try {
+    const savedFacilityName = selectedFacility.value?.name ?? '現在の施設';
     const form = await window.hokanApp.entries.saveDraft(saveInput());
     applyForm(form);
     await refreshStatusMatrix();
-    setMessage('一時保存しました。');
+    showSaveFeedback(`${savedFacilityName}の入力内容`);
 
     if (moveNext) {
-      await moveToNextFacility();
+      const nextFacilityName = await moveToNextFacility();
+      setMessage(
+        nextFacilityName
+          ? `${savedFacilityName}の入力内容を保存しました。${nextFacilityName}へ移動しました。`
+          : `${savedFacilityName}の入力内容を保存しました。最後の施設まで入力しました。`
+      );
+    } else {
+      setMessage(`${savedFacilityName}の入力内容を一時保存しました。`);
     }
   } catch {
+    clearSaveFeedback();
     setError('保存できませんでした。単価設定と入力内容を確認してください。');
   } finally {
     saving.value = false;
@@ -260,31 +275,33 @@ async function completeEntry(): Promise<void> {
   saving.value = true;
 
   try {
+    const savedFacilityName = selectedFacility.value?.name ?? '現在の施設';
     const form = await window.hokanApp.entries.complete(saveInput());
     applyForm(form);
     await refreshStatusMatrix();
-    setMessage('入力完了にしました。');
+    showSaveFeedback(`${savedFacilityName}の入力内容`);
+    setMessage(`${savedFacilityName}の入力内容を入力完了として保存しました。`);
   } catch {
+    clearSaveFeedback();
     setError('入力完了にできませんでした。空欄をなくし、0以上の整数で入力してください。');
   } finally {
     saving.value = false;
   }
 }
 
-async function moveToNextFacility(): Promise<void> {
+async function moveToNextFacility(): Promise<string | null> {
   const currentIndex = facilities.value.findIndex(
     (facility) => facility.id === selectedFacilityId.value
   );
   const nextFacility = facilities.value[currentIndex + 1];
 
   if (!nextFacility) {
-    setMessage('一時保存しました。最後の施設まで入力しました。');
-    return;
+    return null;
   }
 
   selectedFacilityId.value = nextFacility.id;
   await loadEntry();
-  setMessage(`${nextFacility.name}へ移動しました。`);
+  return nextFacility.name;
 }
 
 onMounted(() => {
@@ -304,6 +321,9 @@ onMounted(() => {
 
     <p v-if="message" class="message success" aria-live="polite">{{ message }}</p>
     <p v-if="errorMessage" class="message error" aria-live="assertive">{{ errorMessage }}</p>
+    <p v-if="saveFeedback" class="save-toast" role="status" aria-live="polite">
+      {{ saveFeedback }}
+    </p>
 
     <section class="panel" :aria-busy="loading || saving">
       <div class="panel-heading">
