@@ -1,4 +1,4 @@
-import { generateMonthlyPeriods } from '../../shared/calculations/periods.js';
+import { generateWholeMonthPeriod } from '../../shared/calculations/periods.js';
 import type {
   Facility,
   MonthlyDashboard,
@@ -117,7 +117,7 @@ export class MonthClosingService {
       return existingPeriods;
     }
 
-    return this.periods.createForMonth(targetMonth, generateMonthlyPeriods(targetMonth));
+    return this.periods.createForMonth(targetMonth, [generateWholeMonthPeriod(targetMonth)]);
   }
 }
 
@@ -136,7 +136,7 @@ function collectMissingEntryWarnings(
       return [
         {
           type: 'missing_entry' as const,
-          message: `${facility.name}の第${period.periodIndex}期間が入力完了ではありません。`,
+          message: `${facility.name}の月次入力が入力完了ではありません。`,
           facilityId: facility.id,
           facilityName: facility.name,
           monthlyPeriodId: period.id,

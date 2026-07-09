@@ -207,6 +207,171 @@ export const migrations: Migration[] = [
 
       DROP TABLE nursing_categories_legacy;
     `
+  },
+  {
+    version: 7,
+    name: 'monthly_entries',
+    disableForeignKeys: true,
+    sql: `
+      DROP TABLE IF EXISTS monthly_target_months;
+      DROP TABLE IF EXISTS monthly_kept_periods;
+
+      CREATE TEMP TABLE monthly_target_months AS
+      SELECT DISTINCT target_month FROM monthly_periods
+      UNION
+      SELECT DISTINCT target_month FROM weekly_entries;
+
+      INSERT INTO monthly_periods (
+        target_month,
+        period_index,
+        start_date,
+        end_date,
+        day_count,
+        created_at
+      )
+      SELECT
+        target_month,
+        1,
+        target_month,
+        date(target_month, 'start of month', '+1 month', '-1 day'),
+        CAST(strftime('%d', date(target_month, 'start of month', '+1 month', '-1 day')) AS INTEGER),
+        datetime('now')
+      FROM monthly_target_months
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM monthly_periods
+        WHERE monthly_periods.target_month = monthly_target_months.target_month
+      );
+
+      CREATE TEMP TABLE monthly_kept_periods AS
+      SELECT
+        target_month,
+        COALESCE(
+          MAX(CASE WHEN period_index = 1 THEN id ELSE NULL END),
+          MIN(id)
+        ) AS monthly_period_id
+      FROM monthly_periods
+      GROUP BY target_month;
+
+      UPDATE monthly_periods
+      SET
+        period_index = 1,
+        start_date = target_month,
+        end_date = date(target_month, 'start of month', '+1 month', '-1 day'),
+        day_count = CAST(strftime('%d', date(target_month, 'start of month', '+1 month', '-1 day')) AS INTEGER)
+      WHERE id IN (SELECT monthly_period_id FROM monthly_kept_periods);
+
+      ALTER TABLE weekly_entries RENAME TO weekly_entries_legacy;
+      ALTER TABLE weekly_entry_details RENAME TO weekly_entry_details_legacy;
+
+      CREATE TABLE weekly_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_month TEXT NOT NULL,
+        monthly_period_id INTEGER NOT NULL REFERENCES monthly_periods(id),
+        facility_id INTEGER NOT NULL REFERENCES facilities(id),
+        status TEXT NOT NULL CHECK (status IN ('draft', 'completed')),
+        completed_at TEXT NULL,
+        created_by INTEGER NOT NULL REFERENCES users(id),
+        updated_by INTEGER NOT NULL REFERENCES users(id),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (monthly_period_id, facility_id)
+      );
+
+      CREATE TABLE weekly_entry_details (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        weekly_entry_id INTEGER NOT NULL REFERENCES weekly_entries(id) ON DELETE CASCADE,
+        nursing_category_id INTEGER NOT NULL REFERENCES nursing_categories(id),
+        one_visit_people INTEGER NULL CHECK (
+          one_visit_people IS NULL OR (one_visit_people >= 0 AND one_visit_people <= 99999)
+        ),
+        two_visit_people INTEGER NULL CHECK (
+          two_visit_people IS NULL OR (two_visit_people >= 0 AND two_visit_people <= 99999)
+        ),
+        three_visit_people INTEGER NULL CHECK (
+          three_visit_people IS NULL OR (three_visit_people >= 0 AND three_visit_people <= 99999)
+        ),
+        rate_one_yen INTEGER NOT NULL CHECK (rate_one_yen >= 0),
+        rate_two_yen INTEGER NOT NULL CHECK (rate_two_yen >= 0),
+        rate_three_yen INTEGER NOT NULL CHECK (rate_three_yen >= 0),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (weekly_entry_id, nursing_category_id)
+      );
+
+      INSERT INTO weekly_entries (
+        target_month,
+        monthly_period_id,
+        facility_id,
+        status,
+        completed_at,
+        created_by,
+        updated_by,
+        created_at,
+        updated_at
+      )
+      SELECT
+        legacy.target_month,
+        kept.monthly_period_id,
+        legacy.facility_id,
+        CASE
+          WHEN MAX(CASE WHEN legacy.status = 'completed' THEN 1 ELSE 0 END) = 1
+          THEN 'completed'
+          ELSE 'draft'
+        END,
+        MAX(legacy.completed_at),
+        MIN(legacy.created_by),
+        MAX(legacy.updated_by),
+        MIN(legacy.created_at),
+        MAX(legacy.updated_at)
+      FROM weekly_entries_legacy legacy
+      JOIN monthly_kept_periods kept
+        ON kept.target_month = legacy.target_month
+      GROUP BY legacy.target_month, kept.monthly_period_id, legacy.facility_id;
+
+      INSERT INTO weekly_entry_details (
+        weekly_entry_id,
+        nursing_category_id,
+        one_visit_people,
+        two_visit_people,
+        three_visit_people,
+        rate_one_yen,
+        rate_two_yen,
+        rate_three_yen,
+        created_at,
+        updated_at
+      )
+      SELECT
+        current.id,
+        detail.nursing_category_id,
+        MAX(
+          COALESCE(detail.one_visit_people, 0) +
+          COALESCE(detail.two_visit_people, 0) +
+          COALESCE(detail.three_visit_people, 0)
+        ),
+        0,
+        0,
+        MAX(detail.rate_one_yen),
+        0,
+        0,
+        MIN(detail.created_at),
+        MAX(detail.updated_at)
+      FROM weekly_entries_legacy legacy
+      JOIN weekly_entry_details_legacy detail
+        ON detail.weekly_entry_id = legacy.id
+      JOIN weekly_entries current
+        ON current.target_month = legacy.target_month
+        AND current.facility_id = legacy.facility_id
+      GROUP BY current.id, detail.nursing_category_id;
+
+      DELETE FROM monthly_periods
+      WHERE id NOT IN (SELECT monthly_period_id FROM monthly_kept_periods);
+
+      DROP TABLE weekly_entry_details_legacy;
+      DROP TABLE weekly_entries_legacy;
+      DROP TABLE monthly_kept_periods;
+      DROP TABLE monthly_target_months;
+    `
   }
 ];
 

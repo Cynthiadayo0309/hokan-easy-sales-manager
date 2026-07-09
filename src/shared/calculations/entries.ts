@@ -1,9 +1,14 @@
 import type { CalculatedEntrySummary } from '../types/app-api.js';
+import { calculateBillablePeopleCount } from './billing.js';
 
 export interface EntryCalculationInput {
   peopleCount?: number | null;
   rateYen?: number;
   salesYen?: number;
+  billingMode?: 'weekly' | 'monthly';
+  previousPeopleCount?: number;
+  billablePeopleCount?: number;
+  billableSalesYen?: number;
   oneVisitPeople?: number | null;
   twoVisitPeople?: number | null;
   threeVisitPeople?: number | null;
@@ -29,6 +34,36 @@ export function isCompletedPeopleInput(value: unknown): value is number {
 }
 
 export function calculateEntryDetail(input: EntryCalculationInput): CalculatedEntrySummary {
+  if (input.billableSalesYen !== undefined || input.billablePeopleCount !== undefined) {
+    const peopleCount =
+      input.billablePeopleCount ??
+      calculateBillablePeopleCount(
+        input.peopleCount,
+        input.billingMode ?? 'weekly',
+        input.previousPeopleCount ?? 0
+      );
+
+    return {
+      peopleCount,
+      visitCount: peopleCount,
+      salesYen: input.billableSalesYen ?? peopleCount * (input.rateYen ?? 0)
+    };
+  }
+
+  if (input.billingMode === 'monthly') {
+    const peopleCount = calculateBillablePeopleCount(
+      input.peopleCount,
+      input.billingMode,
+      input.previousPeopleCount ?? 0
+    );
+
+    return {
+      peopleCount,
+      visitCount: peopleCount,
+      salesYen: peopleCount * (input.rateYen ?? 0)
+    };
+  }
+
   if (input.salesYen !== undefined) {
     const peopleCount =
       input.peopleCount ??

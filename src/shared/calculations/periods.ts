@@ -40,6 +40,29 @@ export function generateMonthlyPeriods(targetMonth: string): GeneratedMonthlyPer
   return periods;
 }
 
+export function generateWholeMonthPeriod(targetMonth: string): GeneratedMonthlyPeriod {
+  if (!monthPattern.test(targetMonth)) {
+    throw new Error('MONTH_INVALID');
+  }
+
+  const year = Number.parseInt(targetMonth.slice(0, 4), 10);
+  const monthIndex = Number.parseInt(targetMonth.slice(5, 7), 10) - 1;
+  const firstDay = new Date(Date.UTC(year, monthIndex, 1));
+
+  if (Number.isNaN(firstDay.getTime()) || toIsoDate(firstDay) !== targetMonth) {
+    throw new Error('MONTH_INVALID');
+  }
+
+  const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0));
+
+  return {
+    periodIndex: 1,
+    startDate: targetMonth,
+    endDate: toIsoDate(lastDay),
+    dayCount: differenceInDays(firstDay, lastDay) + 1
+  };
+}
+
 export function formatPeriodDateRange(
   period: Pick<GeneratedMonthlyPeriod, 'startDate' | 'endDate' | 'dayCount'>
 ): string {

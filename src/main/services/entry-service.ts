@@ -3,7 +3,8 @@ import {
   calculateEntrySummary,
   isCompletedPeopleInput
 } from '../../shared/calculations/entries.js';
-import { generateMonthlyPeriods } from '../../shared/calculations/periods.js';
+import { applyEntryBilling, billingModeForCategory } from '../../shared/calculations/billing.js';
+import { generateWholeMonthPeriod } from '../../shared/calculations/periods.js';
 import type {
   CopyPreviousWeeklyEntryInput,
   Facility,
@@ -55,9 +56,12 @@ export class EntryService {
       context.monthlyPeriod.id,
       context.facility.id
     );
-    const details = entry
-      ? this.completeDetailSet(this.entries.listDetails(entry.id), context)
-      : this.createBlankDetails(context);
+    const details = this.applyBilling(
+      entry
+        ? this.completeDetailSet(this.entries.listDetails(entry.id), context)
+        : this.createBlankDetails(context),
+      context
+    );
 
     return this.toForm(context, details, entry);
   }
@@ -145,7 +149,11 @@ export class EntryService {
       this.users.getInitialAdminId()
     );
 
-    return this.toForm(context, this.entries.listDetails(entry.id), entry);
+    return this.toForm(
+      context,
+      this.applyBilling(this.entries.listDetails(entry.id), context),
+      entry
+    );
   }
 
   private save(input: SaveWeeklyEntryInput, status: 'draft' | 'completed'): WeeklyEntryForm {
@@ -161,7 +169,11 @@ export class EntryService {
       this.users.getInitialAdminId()
     );
 
-    return this.toForm(context, this.entries.listDetails(entry.id), entry);
+    return this.toForm(
+      context,
+      this.applyBilling(this.entries.listDetails(entry.id), context),
+      entry
+    );
   }
 
   private getContext(input: GetWeeklyEntryInput): EntryContext {
@@ -182,7 +194,7 @@ export class EntryService {
     }
 
     const nursingCategories = this.nursingCategories.list();
-    return { targetMonth, monthlyPeriod, facility, nursingCategories };
+    return { targetMonth, monthlyPeriod, periods, facility, nursingCategories };
   }
 
   private assertMonthOpen(targetMonth: string): void {
@@ -197,7 +209,7 @@ export class EntryService {
       return existingPeriods;
     }
 
-    return this.periods.createForMonth(targetMonth, generateMonthlyPeriods(targetMonth));
+    return this.periods.createForMonth(targetMonth, [generateWholeMonthPeriod(targetMonth)]);
   }
 
   private createSnapshots(
@@ -210,7 +222,10 @@ export class EntryService {
     }
 
     const rateMap = this.getRateMap(context);
-    const categoryIds = new Set(context.nursingCategories.map((category) => category.id));
+    const categoryMap = new Map(
+      context.nursingCategories.map((category) => [category.id, category])
+    );
+    const categoryIds = new Set(categoryMap.keys());
     const detailKeys = new Set<number>();
 
     if (input.details.length !== context.nursingCategories.length) {
@@ -238,6 +253,9 @@ export class EntryService {
         throw new Error('RATE_SETTINGS_REQUIRED');
       }
 
+      const category = categoryMap.get(nursingCategoryId);
+      const billingMode = category ? billingModeForCategory(category) : 'weekly';
+      void billingMode;
       return {
         nursingCategoryId,
         peopleCount,
@@ -270,6 +288,10 @@ export class EntryService {
       peopleCount: null,
       rateYen: rateMap.get(category.id) ?? 0,
       salesYen: 0,
+      billingMode: billingModeForCategory(category),
+      previousPeopleCount: 0,
+      billablePeopleCount: 0,
+      billableSalesYen: 0,
       oneVisitPeople: null,
       twoVisitPeople: 0,
       threeVisitPeople: 0,
@@ -311,11 +333,23 @@ export class EntryService {
       summary: calculateEntrySummary(details)
     };
   }
+
+  private applyBilling(details: WeeklyEntryDetail[], context: EntryContext): WeeklyEntryDetail[] {
+    const categoryMap = new Map(
+      context.nursingCategories.map((category) => [category.id, category])
+    );
+    return details.map((detail) => {
+      const category = categoryMap.get(detail.nursingCategoryId);
+      const billingMode = category ? billingModeForCategory(category) : 'weekly';
+      return applyEntryBilling(detail, billingMode, 0);
+    });
+  }
 }
 
 interface EntryContext {
   targetMonth: string;
   monthlyPeriod: MonthlyPeriod;
+  periods: MonthlyPeriod[];
   facility: Facility;
   nursingCategories: NursingCategory[];
 }

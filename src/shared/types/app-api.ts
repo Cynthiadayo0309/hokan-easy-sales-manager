@@ -13,10 +13,7 @@ export interface PingResult {
 
 export type VisitFrequency = 1 | 2 | 3;
 export type NursingCategoryCode =
-  | 'long_term_care'
-  | 'appendix_7'
-  | 'psychiatric'
-  | 'special_instruction';
+  'long_term_care' | 'appendix_7' | 'psychiatric' | 'special_instruction';
 
 export interface Facility {
   id: number;
@@ -75,6 +72,7 @@ export interface MonthlyPeriod extends GeneratedMonthlyPeriod {
 }
 
 export type WeeklyEntryStatus = 'not_started' | 'draft' | 'completed';
+export type EntryBillingMode = 'weekly' | 'monthly';
 
 export interface WeeklyEntry {
   id: number;
@@ -96,6 +94,10 @@ export interface WeeklyEntryDetail {
   peopleCount: number | null;
   rateYen: number;
   salesYen: number;
+  billingMode: EntryBillingMode;
+  previousPeopleCount: number;
+  billablePeopleCount: number;
+  billableSalesYen: number;
   oneVisitPeople: number | null;
   twoVisitPeople: number | null;
   threeVisitPeople: number | null;

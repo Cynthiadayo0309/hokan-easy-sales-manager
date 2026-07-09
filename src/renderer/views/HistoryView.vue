@@ -59,7 +59,7 @@ async function closeMonth(): Promise<void> {
   }
 
   if (missingEntryWarnings.value.length > 0) {
-    setError('未入力の施設・期間があります。すべて入力完了にしてから締めてください。');
+    setError('月次入力が未完了の施設があります。すべて入力完了にしてから締めてください。');
     return;
   }
 
@@ -190,7 +190,7 @@ onMounted(() => {
         </div>
 
         <p v-if="missingEntryWarnings.length > 0" class="message error">
-          未入力の施設・期間があります。すべて入力完了にすると月締めできます。
+          月次入力が未完了の施設があります。すべて入力完了にすると月締めできます。
         </p>
         <p v-else-if="missingTargetWarnings.length > 0" class="message">
           月間目標が未設定の項目があります。確認してから月締めしてください。

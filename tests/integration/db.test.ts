@@ -56,6 +56,17 @@ function buildWeeklyDetails(
   }));
 }
 
+function buildPeopleCountDetails(
+  nursingCategories: Array<{ id: number }>,
+  categoryId: number,
+  people: number
+) {
+  return nursingCategories.map((category) => ({
+    nursingCategoryId: category.id,
+    peopleCount: category.id === categoryId ? people : 0
+  }));
+}
+
 function completeAllEntriesForMonth(
   entryService: EntryService,
   targetMonth: string,
@@ -149,7 +160,7 @@ describe('database initialization', () => {
     seedInitialData(db);
 
     expect(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get()).toMatchObject({
-      count: 6
+      count: 7
     });
     expect(db.prepare('SELECT COUNT(*) AS count FROM facilities').get()).toMatchObject({
       count: 5
@@ -169,11 +180,9 @@ describe('database initialization', () => {
       .filter((migration) => migration.version <= 5)
       .forEach((migration) => {
         db.exec(migration.sql);
-        db.prepare('INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)').run(
-          migration.version,
-          migration.name,
-          now
-        );
+        db.prepare(
+          'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)'
+        ).run(migration.version, migration.name, now);
       });
 
     db.prepare(
@@ -205,7 +214,9 @@ describe('database initialization', () => {
     seedInitialData(db);
 
     const categories = db
-      .prepare('SELECT id, code, name, display_order FROM nursing_categories ORDER BY display_order')
+      .prepare(
+        'SELECT id, code, name, display_order FROM nursing_categories ORDER BY display_order'
+      )
       .all();
     expect(categories).toMatchObject([
       { id: 3, code: 'long_term_care', name: '介護', display_order: 1 },
@@ -216,7 +227,7 @@ describe('database initialization', () => {
     expect(
       db
         .prepare(
-          "SELECT amount_yen FROM rate_settings WHERE nursing_category_id = 1 AND visit_frequency = 1"
+          'SELECT amount_yen FROM rate_settings WHERE nursing_category_id = 1 AND visit_frequency = 1'
         )
         .get()
     ).toMatchObject({ amount_yen: 8500 });
@@ -227,6 +238,113 @@ describe('database initialization', () => {
         )
         .get()
     ).toMatchObject({ amount_yen: 0 });
+
+    db.close();
+  });
+
+  it('migrates legacy weekly entries into one monthly entry using the maximum people count', () => {
+    const db = openDatabase(':memory:');
+    const now = new Date().toISOString();
+
+    migrations
+      .filter((migration) => migration.version <= 5)
+      .forEach((migration) => {
+        db.exec(migration.sql);
+        db.prepare(
+          'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)'
+        ).run(migration.version, migration.name, now);
+      });
+    db.prepare(
+      "INSERT INTO nursing_categories (id, code, name, display_order, is_active) VALUES (1, 'medical', '医療訪問看護', 1, 1)"
+    ).run();
+    db.prepare(
+      "INSERT INTO nursing_categories (id, code, name, display_order, is_active) VALUES (2, 'psychiatric', '精神科訪問看護', 2, 1)"
+    ).run();
+    db.prepare(
+      "INSERT INTO nursing_categories (id, code, name, display_order, is_active) VALUES (3, 'long_term_care', '介護訪問看護', 3, 1)"
+    ).run();
+    const categoryMigration = migrations.find((migration) => migration.version === 6)!;
+    db.pragma('foreign_keys = OFF');
+    db.pragma('legacy_alter_table = ON');
+    db.exec(categoryMigration.sql);
+    db.prepare('INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)').run(
+      categoryMigration.version,
+      categoryMigration.name,
+      now
+    );
+    db.pragma('legacy_alter_table = OFF');
+    db.pragma('foreign_keys = ON');
+    seedInitialData(db);
+
+    const facility = db.prepare('SELECT id FROM facilities ORDER BY id LIMIT 1').get() as {
+      id: number;
+    };
+    const category = db
+      .prepare("SELECT id FROM nursing_categories WHERE code = 'long_term_care'")
+      .get() as { id: number };
+    const user = db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get() as { id: number };
+
+    db.prepare(
+      `
+        INSERT INTO monthly_periods (target_month, period_index, start_date, end_date, day_count, created_at)
+        VALUES
+          ('2026-07-01', 1, '2026-07-01', '2026-07-04', 4, ?),
+          ('2026-07-01', 2, '2026-07-05', '2026-07-11', 7, ?)
+      `
+    ).run(now, now);
+    db.prepare(
+      `
+        INSERT INTO weekly_entries (
+          target_month,
+          monthly_period_id,
+          facility_id,
+          status,
+          completed_at,
+          created_by,
+          updated_by,
+          created_at,
+          updated_at
+        )
+        VALUES
+          ('2026-07-01', 1, ?, 'completed', ?, ?, ?, ?, ?),
+          ('2026-07-01', 2, ?, 'draft', NULL, ?, ?, ?, ?)
+      `
+    ).run(facility.id, now, user.id, user.id, now, now, facility.id, user.id, user.id, now, now);
+    db.prepare(
+      `
+        INSERT INTO weekly_entry_details (
+          weekly_entry_id,
+          nursing_category_id,
+          one_visit_people,
+          two_visit_people,
+          three_visit_people,
+          rate_one_yen,
+          rate_two_yen,
+          rate_three_yen,
+          created_at,
+          updated_at
+        )
+        VALUES
+          (1, ?, 5, 0, 0, 8500, 0, 0, ?, ?),
+          (2, ?, 7, 0, 0, 8500, 0, 0, ?, ?)
+      `
+    ).run(category.id, now, now, category.id, now, now);
+
+    runMigrations(db);
+
+    expect(
+      db
+        .prepare("SELECT COUNT(*) AS count FROM monthly_periods WHERE target_month = '2026-07-01'")
+        .get()
+    ).toMatchObject({ count: 1 });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM weekly_entries').get()).toMatchObject({
+      count: 1
+    });
+    expect(
+      db
+        .prepare('SELECT one_visit_people FROM weekly_entry_details WHERE nursing_category_id = ?')
+        .get(category.id)
+    ).toMatchObject({ one_visit_people: 7 });
 
     db.close();
   });
@@ -281,25 +399,25 @@ describe('database initialization', () => {
 });
 
 describe('monthly period service', () => {
-  it('creates periods for a month on first access', () => {
+  it('creates a whole-month period for a month on first access', () => {
     const db = createTestDatabase();
     const periodService = new PeriodService(db);
 
     const periods = periodService.listByMonth({ targetMonth: '2026-07-01' });
 
-    expect(periods).toHaveLength(5);
+    expect(periods).toHaveLength(1);
     expect(periods[0]).toMatchObject({
       targetMonth: '2026-07-01',
       periodIndex: 1,
       startDate: '2026-07-01',
-      endDate: '2026-07-04',
-      dayCount: 4
+      endDate: '2026-07-31',
+      dayCount: 31
     });
     expect(
       db
         .prepare('SELECT COUNT(*) AS count FROM monthly_periods WHERE target_month = ?')
         .get('2026-07-01')
-    ).toMatchObject({ count: 5 });
+    ).toMatchObject({ count: 1 });
 
     db.close();
   });
@@ -311,12 +429,12 @@ describe('monthly period service', () => {
     periodService.listByMonth({ targetMonth: '2026-08-01' });
     const secondRead = periodService.listByMonth({ targetMonth: '2026-08-01' });
 
-    expect(secondRead).toHaveLength(6);
+    expect(secondRead).toHaveLength(1);
     expect(
       db
         .prepare('SELECT COUNT(*) AS count FROM monthly_periods WHERE target_month = ?')
         .get('2026-08-01')
-    ).toMatchObject({ count: 6 });
+    ).toMatchObject({ count: 1 });
 
     db.close();
   });
@@ -512,14 +630,14 @@ describe('rate and monthly target services', () => {
   });
 });
 
-describe('weekly entry service', () => {
+describe('monthly entry service', () => {
   it('returns a monthly status matrix with not started, draft, and completed cells', () => {
     const db = createTestDatabase();
     const status = saveCommonRatesForEntry(db);
     const periodService = new PeriodService(db);
     const entryService = new EntryService(db);
     const periods = periodService.listByMonth({ targetMonth: '2026-07-01' });
-    const [facility] = status.facilities;
+    const [facility, secondFacility] = status.facilities;
     const [firstCategory] = status.nursingCategories;
 
     const emptyMatrix = entryService.getStatusByMonth({ targetMonth: '2026-07-01' });
@@ -538,8 +656,8 @@ describe('weekly entry service', () => {
     });
     entryService.complete({
       targetMonth: '2026-07-01',
-      monthlyPeriodId: periods[1].id,
-      facilityId: facility.id,
+      monthlyPeriodId: periods[0].id,
+      facilityId: secondFacility.id,
       details: buildWeeklyDetails(status.nursingCategories, firstCategory.id, {
         one: 2,
         two: 0,
@@ -556,7 +674,7 @@ describe('weekly entry service', () => {
     ).toMatchObject({ status: 'draft' });
     expect(
       matrix.cells.find(
-        (cell) => cell.monthlyPeriodId === periods[1].id && cell.facilityId === facility.id
+        (cell) => cell.monthlyPeriodId === periods[0].id && cell.facilityId === secondFacility.id
       )
     ).toMatchObject({ status: 'completed' });
 
@@ -704,73 +822,74 @@ describe('weekly entry service', () => {
     db.close();
   });
 
-  it('copies previous period people as draft and uses target period rates', () => {
+  it('recalculates monthly sales when a monthly count is increased', () => {
     const db = createTestDatabase();
     const status = saveCommonRatesForEntry(db);
     const periodService = new PeriodService(db);
-    const rateService = new RateService(db);
     const entryService = new EntryService(db);
-    const periods = periodService.listByMonth({ targetMonth: '2026-07-01' });
+    const [period] = periodService.listByMonth({ targetMonth: '2026-07-01' });
     const [facility] = status.facilities;
     const [firstCategory] = status.nursingCategories;
-    const sourceDetails = buildWeeklyDetails(status.nursingCategories, firstCategory.id, {
-      one: 10,
-      two: 3,
-      three: 2
-    });
 
-    const source = entryService.complete({
+    const first = entryService.complete({
       targetMonth: '2026-07-01',
-      monthlyPeriodId: periods[0].id,
+      monthlyPeriodId: period.id,
       facilityId: facility.id,
-      details: sourceDetails
+      details: buildPeopleCountDetails(status.nursingCategories, firstCategory.id, 5)
     });
 
-    rateService.save({
-      validFrom: periods[1].startDate,
-      rates: status.nursingCategories.map((category) => ({
-        nursingCategoryId: category.id,
-        amountThousandYen: '9.0'
-      }))
-    });
-
-    const copied = entryService.copyPrevious({
+    const increased = entryService.complete({
       targetMonth: '2026-07-01',
-      monthlyPeriodId: periods[1].id,
-      facilityId: facility.id
-    });
-    const copiedDetail = copied.details.find(
-      (detail) => detail.nursingCategoryId === firstCategory.id
-    );
-    const reloadedSource = entryService.get({
-      targetMonth: '2026-07-01',
-      monthlyPeriodId: periods[0].id,
-      facilityId: facility.id
+      monthlyPeriodId: period.id,
+      facilityId: facility.id,
+      details: buildPeopleCountDetails(status.nursingCategories, firstCategory.id, 7)
     });
 
-    expect(copied.status).toBe('draft');
-    expect(copiedDetail).toMatchObject({
-      peopleCount: 15,
-      oneVisitPeople: 15,
-      twoVisitPeople: 0,
-      threeVisitPeople: 0,
-      rateOneYen: 9000,
-      rateTwoYen: 0,
-      rateThreeYen: 0
-    });
-    expect(source.status).toBe('completed');
-    expect(reloadedSource.status).toBe('completed');
+    expect(first.summary.salesYen).toBe(42_500);
+    expect(increased.summary.salesYen).toBe(59_500);
     expect(
-      reloadedSource.details.find((detail) => detail.nursingCategoryId === firstCategory.id)
+      increased.details.find((detail) => detail.nursingCategoryId === firstCategory.id)
     ).toMatchObject({
-      oneVisitPeople: 15,
-      rateOneYen: 8500
+      peopleCount: 7,
+      billingMode: 'monthly',
+      billablePeopleCount: 7,
+      billableSalesYen: 59_500
     });
 
     db.close();
   });
 
-  it('does not copy when there is no previous period or previous entry', () => {
+  it('calculates every category as monthly people times the monthly rate', () => {
+    const db = createTestDatabase();
+    const status = saveCommonRatesForEntry(db);
+    const periodService = new PeriodService(db);
+    const dashboardService = new DashboardService(db);
+    const exportService = new ExportService(db);
+    const entryService = new EntryService(db);
+    const [period] = periodService.listByMonth({ targetMonth: '2026-07-01' });
+    const [facility] = status.facilities;
+
+    const completed = entryService.complete({
+      targetMonth: '2026-07-01',
+      monthlyPeriodId: period.id,
+      facilityId: facility.id,
+      details: status.nursingCategories.map((category, index) => ({
+        nursingCategoryId: category.id,
+        peopleCount: index + 1
+      }))
+    });
+    const dashboard = dashboardService.getMonthly({ targetMonth: '2026-07-01' });
+    const csv = exportService.buildDetailCsv('2026-07-01');
+
+    expect(completed.summary.salesYen).toBe(85_000);
+    expect(dashboard.summary.actualSalesYen).toBe(85_000);
+    expect(dashboard.periodRows[0].salesYen).toBe(85_000);
+    expect(csv.content).toContain(`${status.nursingCategories[3].name},4,34000`);
+
+    db.close();
+  });
+
+  it('does not copy when there is no previous monthly period', () => {
     const db = createTestDatabase();
     const status = saveCommonRatesForEntry(db);
     const periodService = new PeriodService(db);
@@ -786,20 +905,12 @@ describe('weekly entry service', () => {
       })
     ).toThrow('PREVIOUS_PERIOD_NOT_FOUND');
 
-    expect(() =>
-      entryService.copyPrevious({
-        targetMonth: '2026-07-01',
-        monthlyPeriodId: periods[1].id,
-        facilityId: facility.id
-      })
-    ).toThrow('PREVIOUS_ENTRY_NOT_FOUND');
-
     db.close();
   });
 });
 
 describe('monthly dashboard service', () => {
-  it('returns a safe dashboard when there are no weekly entries', () => {
+  it('returns a safe dashboard when there are no monthly entries', () => {
     const db = createTestDatabase();
     const dashboardService = new DashboardService(db);
 
@@ -811,12 +922,12 @@ describe('monthly dashboard service', () => {
     expect(dashboard.summary.forecast.forecastSalesYen).toBeNull();
     expect(dashboard.facilityRows).toHaveLength(5);
     expect(dashboard.nursingCategoryRows).toHaveLength(4);
-    expect(dashboard.periodRows).toHaveLength(5);
+    expect(dashboard.periodRows).toHaveLength(1);
 
     db.close();
   });
 
-  it('aggregates targets, draft and completed entries, and completed-day forecasts', () => {
+  it('aggregates targets, draft and completed monthly entries', () => {
     const db = createTestDatabase();
     const status = saveCommonRatesForEntry(db);
     const targetService = new TargetService(db);
@@ -824,7 +935,7 @@ describe('monthly dashboard service', () => {
     const entryService = new EntryService(db);
     const dashboardService = new DashboardService(db);
     const periods = periodService.listByMonth({ targetMonth: '2026-07-01' });
-    const [firstFacility] = status.facilities;
+    const [firstFacility, secondFacility] = status.facilities;
     const [firstCategory] = status.nursingCategories;
 
     targetService.saveMonthly({
@@ -855,8 +966,8 @@ describe('monthly dashboard service', () => {
 
     entryService.saveDraft({
       targetMonth: '2026-07-01',
-      monthlyPeriodId: periods[1].id,
-      facilityId: firstFacility.id,
+      monthlyPeriodId: periods[0].id,
+      facilityId: secondFacility.id,
       details: buildWeeklyDetails(status.nursingCategories, firstCategory.id, {
         one: 10,
         two: 0,
@@ -875,18 +986,13 @@ describe('monthly dashboard service', () => {
     expect(dashboard.summary.targetSalesYen).toBe(2_000_000);
     expect(dashboard.summary.actualSalesYen).toBe(170_000);
     expect(dashboard.summary.actualPeopleCount).toBe(20);
-    expect(dashboard.summary.forecast.completedDayCount).toBe(4);
-    expect(dashboard.summary.forecast.forecastSalesYen).toBe(1_317_500);
-    expect(firstFacilityRow?.actualSalesYen).toBe(170_000);
-    expect(firstFacilityRow?.forecast.completedDayCount).toBe(4);
+    expect(dashboard.summary.forecast.completedDayCount).toBe(0);
+    expect(dashboard.summary.forecast.forecastSalesYen).toBeNull();
+    expect(firstFacilityRow?.actualSalesYen).toBe(85_000);
     expect(firstCategoryRow?.actualSalesYen).toBe(170_000);
     expect(dashboard.periodRows[0]).toMatchObject({
-      completedFacilityCount: 5,
-      salesYen: 85_000
-    });
-    expect(dashboard.periodRows[1]).toMatchObject({
-      completedFacilityCount: 0,
-      salesYen: 85_000
+      completedFacilityCount: 4,
+      salesYen: 170_000
     });
 
     db.close();
@@ -1077,7 +1183,7 @@ describe('month closing service', () => {
 });
 
 describe('export service', () => {
-  it('builds UTF-8 BOM detail CSV with required weekly columns', () => {
+  it('builds UTF-8 BOM detail CSV with required monthly columns', () => {
     const db = createTestDatabase();
     const status = saveCommonRatesForEntry(db);
     const periodService = new PeriodService(db);
@@ -1099,7 +1205,7 @@ describe('export service', () => {
     const csv = exportService.buildDetailCsv('2026-07-01');
 
     expect(csv.content.charCodeAt(0)).toBe(0xfeff);
-    expect(csv.content).toContain('対象年月,期間開始日,期間終了日,施設名');
+    expect(csv.content).toContain('対象年月,施設名,看護区分,人数,売上円,売上千円,入力状態');
     expect(csv.content).toContain(status.facilities[0].name);
     expect(csv.content).toContain(status.nursingCategories[0].name);
     expect(csv.rowCount).toBe(4);

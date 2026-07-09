@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { formatPeriodDateRange } from '@shared/calculations/periods';
 import type {
   AchievementResult,
   DashboardFacilityRow,
-  DashboardSummary,
   MonthlyDashboard
 } from '@shared/types/app-api';
 import { formatMoneyCompact } from '../utils/display';
@@ -71,12 +69,6 @@ function formatRemaining(achievement: AchievementResult): string {
   return formatMoneyCompact(Math.abs(achievement.remainingYen));
 }
 
-function formatForecast(summary: DashboardSummary): string {
-  return summary.forecast.forecastSalesYen === null
-    ? '－'
-    : formatMoneyCompact(summary.forecast.forecastSalesYen);
-}
-
 onMounted(() => {
   void loadFacilityDashboard();
 });
@@ -87,7 +79,7 @@ onMounted(() => {
     <div class="notice">
       <p class="eyebrow">施設別</p>
       <h2>{{ monthLabel }}の施設別達成状況</h2>
-      <p>施設ごとの月間目標、累計、達成率、目標までの金額、月末予測を確認します。</p>
+      <p>施設ごとの月間目標、累計、達成率、目標までの金額を確認します。</p>
     </div>
 
     <p v-if="errorMessage" class="message error" aria-live="assertive">{{ errorMessage }}</p>
@@ -124,7 +116,7 @@ onMounted(() => {
         この施設の月間目標が設定されていません。「目標・単価設定」から登録してください。
       </p>
       <p v-else-if="noActual" class="message">
-        この施設の実績はまだ入力されていません。「週次入力」から入力を始めてください。
+        この施設の実績はまだ入力されていません。「月次入力」から入力を始めてください。
       </p>
 
       <div class="summary-grid dashboard-summary-grid">
@@ -153,19 +145,6 @@ onMounted(() => {
       <section class="panel">
         <div class="panel-heading">
           <div>
-            <h2>月末予測</h2>
-            <p class="card-label">
-              入力完了日数 {{ selectedFacility.forecast.completedDayCount }}日 /
-              {{ selectedFacility.forecast.daysInMonth }}日
-            </p>
-          </div>
-          <span class="status-text">{{ formatForecast(selectedFacility) }}</span>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-heading">
-          <div>
             <h2>施設一覧</h2>
             <p class="card-label">施設ごとの達成状況を比較します</p>
           </div>
@@ -177,7 +156,6 @@ onMounted(() => {
             <span>目標</span>
             <span>累計</span>
             <span>達成率</span>
-            <span>予測</span>
           </div>
           <button
             v-for="row in dashboard.facilityRows"
@@ -194,7 +172,6 @@ onMounted(() => {
             <span>{{ formatMoneyCompact(row.targetSalesYen) }}</span>
             <span>{{ formatMoneyCompact(row.actualSalesYen) }}</span>
             <span>{{ formatAchievement(row.achievement) }}</span>
-            <span>{{ formatForecast(row) }}</span>
           </button>
         </div>
       </section>
@@ -223,30 +200,6 @@ onMounted(() => {
             <span>{{ formatMoneyCompact(row.targetSalesYen) }}</span>
             <span>{{ formatMoneyCompact(row.actualSalesYen) }}</span>
             <span>{{ row.actualPeopleCount.toLocaleString('ja-JP') }}人</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-heading">
-          <div>
-            <h2>期間別推移</h2>
-            <p class="card-label">この月全体の期間別実績です</p>
-          </div>
-          <span class="status-text">{{ dashboard.periodRows.length }}期間</span>
-        </div>
-        <div class="dashboard-table">
-          <div class="dashboard-row dashboard-head">
-            <span>期間</span>
-            <span>売上</span>
-            <span>人数</span>
-            <span>入力完了</span>
-          </div>
-          <div v-for="row in dashboard.periodRows" :key="row.monthlyPeriodId" class="dashboard-row">
-            <strong>第{{ row.periodIndex }}期間 {{ formatPeriodDateRange(row) }}</strong>
-            <span>{{ formatMoneyCompact(row.salesYen) }}</span>
-            <span>{{ row.peopleCount.toLocaleString('ja-JP') }}人</span>
-            <span>{{ row.facilityCount }}施設中{{ row.completedFacilityCount }}施設</span>
           </div>
         </div>
       </section>

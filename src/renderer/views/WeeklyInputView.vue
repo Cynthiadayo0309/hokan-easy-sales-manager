@@ -2,11 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { calculateEntryDetail, calculateEntrySummary } from '@shared/calculations/entries';
-import {
-  buildCopyPreviousMessage,
-  weeklyEntryStatusLabel
-} from '@shared/calculations/entry-status';
-import { formatPeriodDateRange, isPartialPeriod } from '@shared/calculations/periods';
+import { weeklyEntryStatusLabel } from '@shared/calculations/entry-status';
 import type {
   Facility,
   MonthlyPeriod,
@@ -38,21 +34,13 @@ const monthLabel = computed(() => {
   const [year, month] = selectedMonth.value.split('-');
   return `${year}年${Number(month)}月`;
 });
-const selectedPeriod = computed(
-  () => periods.value.find((period) => period.id === selectedPeriodId.value) ?? null
-);
 const selectedFacility = computed(
   () => facilities.value.find((facility) => facility.id === selectedFacilityId.value) ?? null
 );
-const previousPeriod = computed(() => {
-  if (!selectedPeriod.value) {
-    return null;
-  }
-
-  const currentIndex = periods.value.findIndex((period) => period.id === selectedPeriod.value?.id);
-  return currentIndex > 0 ? periods.value[currentIndex - 1] : null;
-});
 const currentStatus = computed<WeeklyEntryStatus>(() => currentForm.value?.status ?? 'not_started');
+const completedFacilityCount = computed(
+  () => statusMatrix.value?.cells.filter((cell) => cell.status === 'completed').length ?? 0
+);
 const calculatedSummary = computed(() =>
   calculateEntrySummary(
     nursingCategories.value.map((category) => {
@@ -60,7 +48,8 @@ const calculatedSummary = computed(() =>
       const savedDetail = getSavedDetail(category.id);
       return {
         peopleCount: detail.peopleCount,
-        rateYen: savedDetail?.rateYen ?? 0
+        rateYen: savedDetail?.rateYen ?? 0,
+        billingMode: savedDetail?.billingMode ?? 'monthly'
       };
     })
   )
@@ -111,24 +100,25 @@ function rowSummary(categoryId: number) {
   const savedDetail = getSavedDetail(categoryId);
   return calculateEntryDetail({
     peopleCount: detail.peopleCount,
-    rateYen: savedDetail?.rateYen ?? 0
+    rateYen: savedDetail?.rateYen ?? 0,
+    billingMode: savedDetail?.billingMode ?? 'monthly'
   });
 }
 
-function statusCell(periodId: number, facilityId: number): WeeklyEntryStatusCell | null {
+function statusCell(facilityId: number): WeeklyEntryStatusCell | null {
+  if (!selectedPeriodId.value) {
+    return null;
+  }
+
   return (
     statusMatrix.value?.cells.find(
-      (cell) => cell.monthlyPeriodId === periodId && cell.facilityId === facilityId
+      (cell) => cell.monthlyPeriodId === selectedPeriodId.value && cell.facilityId === facilityId
     ) ?? null
   );
 }
 
 function facilityStatusLabel(facilityId: number): string {
-  if (!selectedPeriodId.value) {
-    return '未入力';
-  }
-
-  return statusLabel(statusCell(selectedPeriodId.value, facilityId)?.status ?? 'not_started');
+  return statusLabel(statusCell(facilityId)?.status ?? 'not_started');
 }
 
 function applyForm(form: WeeklyEntryForm): void {
@@ -155,7 +145,7 @@ async function loadEntry(): Promise<void> {
     });
     applyForm(form);
   } catch {
-    setError('入力内容を読み込めませんでした。施設と期間を確認してください。');
+    setError('入力内容を読み込めませんでした。施設と対象月を確認してください。');
   }
 }
 
@@ -177,9 +167,7 @@ async function loadMonth(): Promise<void> {
     nursingCategories.value = setupStatus.nursingCategories;
     await refreshStatusMatrix();
 
-    if (!periods.value.some((period) => period.id === selectedPeriodId.value)) {
-      selectedPeriodId.value = periods.value[0]?.id ?? null;
-    }
+    selectedPeriodId.value = periods.value[0]?.id ?? null;
 
     if (!facilities.value.some((facility) => facility.id === selectedFacilityId.value)) {
       selectedFacilityId.value = facilities.value[0]?.id ?? null;
@@ -187,27 +175,13 @@ async function loadMonth(): Promise<void> {
 
     await loadEntry();
   } catch {
-    setError('週次入力の準備ができませんでした。初期設定と単価設定を確認してください。');
+    setError('月次入力の準備ができませんでした。初期設定と単価設定を確認してください。');
   } finally {
     loading.value = false;
   }
 }
 
-async function changePeriod(): Promise<void> {
-  message.value = null;
-  errorMessage.value = null;
-  await loadEntry();
-}
-
 async function selectFacility(facilityId: number): Promise<void> {
-  selectedFacilityId.value = facilityId;
-  message.value = null;
-  errorMessage.value = null;
-  await loadEntry();
-}
-
-async function selectMatrixCell(periodId: number, facilityId: number): Promise<void> {
-  selectedPeriodId.value = periodId;
   selectedFacilityId.value = facilityId;
   message.value = null;
   errorMessage.value = null;
@@ -272,7 +246,7 @@ async function saveDraft(moveNext = false): Promise<void> {
       await moveToNextFacility();
     }
   } catch {
-    setError('保存できませんでした。目標・単価設定で単価を登録し、入力内容を確認してください。');
+    setError('保存できませんでした。単価設定と入力内容を確認してください。');
   } finally {
     saving.value = false;
   }
@@ -292,44 +266,6 @@ async function completeEntry(): Promise<void> {
     setMessage('入力完了にしました。');
   } catch {
     setError('入力完了にできませんでした。空欄をなくし、0以上の整数で入力してください。');
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function copyPreviousEntry(): Promise<void> {
-  if (saving.value) {
-    return;
-  }
-
-  if (!selectedPeriod.value || !selectedFacility.value || !previousPeriod.value) {
-    setError('前の期間がないためコピーできません。');
-    return;
-  }
-
-  const confirmed = window.confirm(
-    buildCopyPreviousMessage(previousPeriod.value, selectedPeriod.value)
-  );
-
-  if (!confirmed) {
-    return;
-  }
-
-  saving.value = true;
-
-  try {
-    const form = await window.hokanApp.entries.copyPrevious({
-      targetMonth: targetMonth.value,
-      monthlyPeriodId: selectedPeriod.value.id,
-      facilityId: selectedFacility.value.id
-    });
-    applyForm(form);
-    await refreshStatusMatrix();
-    setMessage('前期間の人数をコピーしました。内容を確認して保存または入力完了してください。');
-  } catch {
-    setError(
-      '前期間をコピーできませんでした。同じ施設の前期間が保存されているか確認してください。'
-    );
   } finally {
     saving.value = false;
   }
@@ -359,10 +295,10 @@ onMounted(() => {
 <template>
   <section class="view-stack">
     <div class="notice">
-      <p class="eyebrow">週次実績入力</p>
-      <h2>施設ごとの人数を入力する</h2>
+      <p class="eyebrow">月次実績入力</p>
+      <h2>施設ごとの月次人数を入力する</h2>
       <p>
-        期間と施設を選び、介護・別表7・精神・特指示の人数を入力します。人数と売上見込みは入力中に確認できます。
+        介護・別表7・精神・特指示の月次人数を入力します。追加訪問開始時は人数に足して保存します。
       </p>
     </div>
 
@@ -373,7 +309,9 @@ onMounted(() => {
       <div class="panel-heading">
         <div>
           <h2>{{ monthLabel }}</h2>
-          <p class="card-label">対象月、期間、施設を選んで入力します</p>
+          <p class="card-label">
+            入力完了 {{ completedFacilityCount }}施設 / {{ facilities.length }}施設
+          </p>
         </div>
         <label class="month-field">
           <span>対象年月</span>
@@ -381,74 +319,9 @@ onMounted(() => {
         </label>
       </div>
 
-      <p v-if="loading" class="message">週次入力を読み込んでいます。</p>
+      <p v-if="loading" class="message">月次入力を読み込んでいます。</p>
 
       <template v-else>
-        <section class="status-matrix" aria-label="入力状況">
-          <div class="status-matrix-heading">
-            <div>
-              <h3>入力状況</h3>
-              <p class="card-label">セルを押すと、その期間と施設の入力へ移動します</p>
-            </div>
-            <span class="status-text">未入力・一時保存・入力完了</span>
-          </div>
-          <div class="status-matrix-table" role="table" aria-label="施設と期間の入力状況">
-            <div class="status-matrix-row status-matrix-head" role="row">
-              <span>施設</span>
-              <span v-for="period in periods" :key="period.id">
-                第{{ period.periodIndex }}期間<br />
-                {{ formatPeriodDateRange(period) }}
-              </span>
-            </div>
-            <div
-              v-for="facility in facilities"
-              :key="facility.id"
-              class="status-matrix-row"
-              role="row"
-            >
-              <strong>{{ facility.name }}</strong>
-              <button
-                v-for="period in periods"
-                :key="period.id"
-                :class="[
-                  'status-cell',
-                  `status-cell-${statusCell(period.id, facility.id)?.status ?? 'not_started'}`,
-                  {
-                    active: period.id === selectedPeriodId && facility.id === selectedFacilityId
-                  }
-                ]"
-                type="button"
-                @click="selectMatrixCell(period.id, facility.id)"
-              >
-                {{ statusLabel(statusCell(period.id, facility.id)?.status ?? 'not_started') }}
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <div class="weekly-context-grid">
-          <label>
-            <span>対象期間</span>
-            <select v-model.number="selectedPeriodId" @change="changePeriod">
-              <option v-for="period in periods" :key="period.id" :value="period.id">
-                第{{ period.periodIndex }}期間 {{ formatPeriodDateRange(period) }}
-              </option>
-            </select>
-          </label>
-          <div>
-            <span>現在の施設</span>
-            <strong>{{ selectedFacility?.name ?? '施設なし' }}</strong>
-          </div>
-          <div>
-            <span>保存状態</span>
-            <strong>{{ statusLabel(currentStatus) }}</strong>
-          </div>
-        </div>
-
-        <p v-if="selectedPeriod && isPartialPeriod(selectedPeriod)" class="message">
-          この期間は月初または月末の短い期間です。月外の日付は含めていません。
-        </p>
-
         <div class="facility-tabs" aria-label="施設選択">
           <button
             v-for="facility in facilities"
@@ -462,9 +335,24 @@ onMounted(() => {
           </button>
         </div>
 
+        <div class="weekly-context-grid">
+          <div>
+            <span>対象月</span>
+            <strong>{{ monthLabel }}</strong>
+          </div>
+          <div>
+            <span>現在の施設</span>
+            <strong>{{ selectedFacility?.name ?? '施設なし' }}</strong>
+          </div>
+          <div>
+            <span>保存状態</span>
+            <strong>{{ statusLabel(currentStatus) }}</strong>
+          </div>
+        </div>
+
         <div class="weekly-summary-grid">
           <div class="summary-card">
-            <p class="card-label">人数合計</p>
+            <p class="card-label">月次人数合計</p>
             <strong>{{ calculatedSummary.peopleCount.toLocaleString('ja-JP') }}人</strong>
           </div>
           <div class="summary-card">
@@ -473,10 +361,10 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="entry-table" role="table" aria-label="週次実績入力">
+        <div class="entry-table" role="table" aria-label="月次実績入力">
           <div class="entry-row entry-head" role="row">
             <span>看護区分</span>
-            <span>人数</span>
+            <span>月次人数</span>
             <span>売上見込み</span>
           </div>
           <div
@@ -501,14 +389,6 @@ onMounted(() => {
         <div class="entry-actions">
           <button class="secondary-button" :disabled="saving" type="button" @click="setAllZero">
             すべて0人
-          </button>
-          <button
-            class="secondary-button"
-            :disabled="saving || !previousPeriod"
-            type="button"
-            @click="copyPreviousEntry"
-          >
-            {{ saving ? 'コピー中' : '前期間をコピー' }}
           </button>
           <button
             class="secondary-button"

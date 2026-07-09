@@ -2,11 +2,11 @@ import { dialog } from 'electron';
 import { writeFileSync } from 'node:fs';
 
 import { calculateEntryDetail } from '../../shared/calculations/entries.js';
+import { applyEntryBilling, billingModeForCategory } from '../../shared/calculations/billing.js';
 import { yenToThousandYenLabel } from '../../shared/calculations/dashboard.js';
 import type { ExportResult, MonthlyDashboard } from '../../shared/types/app-api.js';
 import type { AppDatabase } from '../db/connection.js';
 import { FacilityRepository } from '../db/repositories/facility-repository.js';
-import { MonthlyPeriodRepository } from '../db/repositories/monthly-period-repository.js';
 import { NursingCategoryRepository } from '../db/repositories/nursing-category-repository.js';
 import { WeeklyEntryRepository } from '../db/repositories/weekly-entry-repository.js';
 import { DashboardService } from './dashboard-service.js';
@@ -16,14 +16,12 @@ const bom = '\uFEFF';
 
 export class ExportService {
   private readonly facilities: FacilityRepository;
-  private readonly periods: MonthlyPeriodRepository;
   private readonly nursingCategories: NursingCategoryRepository;
   private readonly entries: WeeklyEntryRepository;
   private readonly dashboard: DashboardService;
 
   constructor(private readonly db: AppDatabase) {
     this.facilities = new FacilityRepository(db);
-    this.periods = new MonthlyPeriodRepository(db);
     this.nursingCategories = new NursingCategoryRepository(db);
     this.entries = new WeeklyEntryRepository(db);
     this.dashboard = new DashboardService(db);
@@ -32,7 +30,7 @@ export class ExportService {
   async detailCsv(input: { targetMonth: string }): Promise<ExportResult> {
     const targetMonth = assertMonth(input.targetMonth);
     const csv = this.buildDetailCsv(targetMonth);
-    return writeCsvWithDialog(csv, `${targetMonth.slice(0, 7)}-weekly-details.csv`);
+    return writeCsvWithDialog(csv, `${targetMonth.slice(0, 7)}-monthly-details.csv`);
   }
 
   async monthlyCsv(input: { targetMonth: string }): Promise<ExportResult> {
@@ -45,41 +43,27 @@ export class ExportService {
     const facilities = new Map(
       this.facilities.list(true).map((facility) => [facility.id, facility])
     );
-    const periods = new Map(
-      this.periods.listByMonth(targetMonth).map((period) => [period.id, period])
-    );
     const categories = new Map(
       this.nursingCategories.list().map((category) => [category.id, category])
     );
     const entries = this.entries.listByMonth(targetMonth);
     const rows: string[][] = [
-      [
-        '対象年月',
-        '期間開始日',
-        '期間終了日',
-        '施設名',
-        '看護区分',
-        '人数',
-        '売上円',
-        '売上千円',
-        '入力状態'
-      ]
+      ['対象年月', '施設名', '看護区分', '人数', '売上円', '売上千円', '入力状態']
     ];
 
     entries.forEach((entry) => {
-      const period = periods.get(entry.monthlyPeriodId);
       const facility = facilities.get(entry.facilityId);
-      if (!period || !facility) {
+      if (!facility) {
         return;
       }
 
       this.entries.listDetails(entry.id).forEach((detail) => {
         const category = categories.get(detail.nursingCategoryId);
-        const summary = calculateEntryDetail(detail);
+        const billingMode = category ? billingModeForCategory(category) : 'weekly';
+        const billedDetail = applyEntryBilling(detail, billingMode, 0);
+        const summary = calculateEntryDetail(billedDetail);
         rows.push([
           targetMonth,
-          period.startDate,
-          period.endDate,
           facility.name,
           category?.name ?? '',
           String(summary.peopleCount),

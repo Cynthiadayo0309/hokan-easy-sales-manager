@@ -2,8 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 
-import { formatPeriodDateRange } from '@shared/calculations/periods';
-import type { AchievementResult, DashboardSummary, MonthlyDashboard } from '@shared/types/app-api';
+import type { AchievementResult, MonthlyDashboard } from '@shared/types/app-api';
 import { formatMoneyCompact } from '../utils/display';
 
 const selectedMonth = ref(new Date().toISOString().slice(0, 7));
@@ -16,12 +15,6 @@ const monthLabel = computed(() => {
   const [year, month] = selectedMonth.value.split('-');
   return `${year}年${Number(month)}月`;
 });
-const focusedPeriod = computed(() =>
-  dashboard.value?.periodRows.find(
-    (period) => period.monthlyPeriodId === dashboard.value?.inputStatus.monthlyPeriodId
-  )
-);
-
 async function loadDashboard(): Promise<void> {
   loading.value = true;
   errorMessage.value = null;
@@ -73,23 +66,13 @@ function formatRemaining(achievement: AchievementResult): string {
   return formatMoneyCompact(Math.abs(achievement.remainingYen));
 }
 
-function formatForecast(summary: DashboardSummary): string {
-  return summary.forecast.forecastSalesYen === null
-    ? '－'
-    : formatMoneyCompact(summary.forecast.forecastSalesYen);
-}
-
 function inputStatusText(): string {
   if (!dashboard.value) {
     return '';
   }
 
   const status = dashboard.value.inputStatus;
-  if (!status.monthlyPeriodId) {
-    return '対象期間がまだありません。';
-  }
-
-  return `第${status.periodIndex}期間: ${status.facilityCount}施設中${status.completedFacilityCount}施設が入力完了です。`;
+  return `${status.facilityCount}施設中${status.completedFacilityCount}施設が入力完了です。`;
 }
 
 onMounted(() => {
@@ -102,7 +85,7 @@ onMounted(() => {
     <div class="notice">
       <p class="eyebrow">月間ダッシュボード</p>
       <h2>{{ monthLabel }}の売上見込み</h2>
-      <p>週次入力と月間目標をもとに、月間累計、達成率、目標までの金額、月末予測を確認します。</p>
+      <p>月次入力と月間目標をもとに、月間累計、達成率、目標までの金額を確認します。</p>
     </div>
 
     <section class="panel dashboard-toolbar" :aria-busy="loading">
@@ -142,14 +125,6 @@ onMounted(() => {
           <p class="card-label">{{ achievementNote(dashboard.summary.achievement) }}</p>
           <strong>{{ formatRemaining(dashboard.summary.achievement) }}</strong>
         </section>
-        <section class="summary-card">
-          <p class="card-label">月末予測</p>
-          <strong>{{ formatForecast(dashboard.summary) }}</strong>
-          <span class="card-note">
-            完了日数 {{ dashboard.summary.forecast.completedDayCount }}日 /
-            {{ dashboard.summary.forecast.daysInMonth }}日
-          </span>
-        </section>
       </div>
 
       <section class="panel">
@@ -158,11 +133,8 @@ onMounted(() => {
             <h2>入力状況</h2>
             <p class="card-label">{{ inputStatusText() }}</p>
           </div>
-          <RouterLink class="primary-button link-button" to="/weekly-input">週次入力へ</RouterLink>
+          <RouterLink class="primary-button link-button" to="/weekly-input">月次入力へ</RouterLink>
         </div>
-        <p v-if="focusedPeriod" class="message">
-          {{ formatPeriodDateRange(focusedPeriod) }} の入力状況を確認しています。
-        </p>
       </section>
 
       <section class="panel">
@@ -176,14 +148,12 @@ onMounted(() => {
             <span>目標</span>
             <span>累計</span>
             <span>達成率</span>
-            <span>予測</span>
           </div>
           <div v-for="row in dashboard.facilityRows" :key="row.facilityId" class="dashboard-row">
             <strong>{{ row.facilityName }}</strong>
             <span>{{ formatMoneyCompact(row.targetSalesYen) }}</span>
             <span>{{ formatMoneyCompact(row.actualSalesYen) }}</span>
             <span>{{ formatAchievement(row.achievement) }}</span>
-            <span>{{ formatForecast(row) }}</span>
           </div>
         </div>
       </section>
@@ -209,27 +179,6 @@ onMounted(() => {
             <span>{{ formatMoneyCompact(row.targetSalesYen) }}</span>
             <span>{{ formatMoneyCompact(row.actualSalesYen) }}</span>
             <span>{{ row.actualPeopleCount.toLocaleString('ja-JP') }}人</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-heading">
-          <h2>期間別推移</h2>
-          <span class="status-text">{{ dashboard.periodRows.length }}期間</span>
-        </div>
-        <div class="dashboard-table">
-          <div class="dashboard-row dashboard-head">
-            <span>期間</span>
-            <span>売上</span>
-            <span>人数</span>
-            <span>入力完了</span>
-          </div>
-          <div v-for="row in dashboard.periodRows" :key="row.monthlyPeriodId" class="dashboard-row">
-            <strong>第{{ row.periodIndex }}期間 {{ formatPeriodDateRange(row) }}</strong>
-            <span>{{ formatMoneyCompact(row.salesYen) }}</span>
-            <span>{{ row.peopleCount.toLocaleString('ja-JP') }}人</span>
-            <span>{{ row.facilityCount }}施設中{{ row.completedFacilityCount }}施設</span>
           </div>
         </div>
       </section>

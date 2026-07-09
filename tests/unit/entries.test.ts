@@ -36,4 +36,26 @@ describe('weekly entry calculations', () => {
     expect(assertPeopleInput(0)).toBe(0);
     expect(() => assertPeopleInput('')).toThrow('PEOPLE_COUNT_INVALID');
   });
+
+  it('calculates monthly entries from the entered monthly count', () => {
+    const summary = calculateEntryDetail({
+      peopleCount: 5,
+      rateYen: 8500,
+      billingMode: 'monthly'
+    });
+
+    expect(summary.peopleCount).toBe(5);
+    expect(summary.salesYen).toBe(42_500);
+  });
+
+  it('recalculates monthly entries from the increased monthly count', () => {
+    const summary = calculateEntryDetail({
+      peopleCount: 7,
+      rateYen: 8500,
+      billingMode: 'monthly'
+    });
+
+    expect(summary.peopleCount).toBe(7);
+    expect(summary.salesYen).toBe(59_500);
+  });
 });

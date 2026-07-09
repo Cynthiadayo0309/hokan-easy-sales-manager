@@ -12,7 +12,7 @@ const appStatus = useAppStatusStore();
 const screenTitleByRouteName: Record<string, string> = {
   home: 'ホーム',
   'initial-setup': '初期設定',
-  'weekly-input': '週次入力',
+  'weekly-input': '月次入力',
   facility: '施設別',
   history: '過去月',
   settings: '目標・単価設定',
@@ -62,13 +62,13 @@ onMounted(() => {
         <span class="brand-mark" aria-hidden="true">訪</span>
         <div>
           <p class="brand-name">訪看かんたん売上管理</p>
-          <p class="brand-subtitle">週1回の入力をかんたんに</p>
+          <p class="brand-subtitle">月1回の入力をかんたんに</p>
         </div>
       </div>
 
       <nav class="nav-list">
         <RouterLink to="/">ホーム</RouterLink>
-        <RouterLink to="/weekly-input">週次入力</RouterLink>
+        <RouterLink to="/weekly-input">月次入力</RouterLink>
         <RouterLink to="/facility">施設別</RouterLink>
         <RouterLink to="/history">過去月</RouterLink>
         <RouterLink to="/settings">目標・単価設定</RouterLink>

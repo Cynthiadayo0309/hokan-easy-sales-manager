@@ -196,6 +196,13 @@ export function mapWeeklyEntryDetail(row: WeeklyEntryDetailRow): WeeklyEntryDeta
       oneVisitPeople * row.rate_one_yen +
       twoVisitPeople * row.rate_two_yen +
       threeVisitPeople * row.rate_three_yen,
+    billingMode: 'monthly',
+    previousPeopleCount: 0,
+    billablePeopleCount: peopleCount,
+    billableSalesYen:
+      oneVisitPeople * row.rate_one_yen +
+      twoVisitPeople * row.rate_two_yen +
+      threeVisitPeople * row.rate_three_yen,
     oneVisitPeople: row.one_visit_people,
     twoVisitPeople: row.two_visit_people,
     threeVisitPeople: row.three_visit_people,

@@ -1,4 +1,4 @@
-import { generateMonthlyPeriods } from '../../shared/calculations/periods.js';
+import { generateWholeMonthPeriod } from '../../shared/calculations/periods.js';
 import type { AppDatabase } from '../db/connection.js';
 import { MonthlyPeriodRepository } from '../db/repositories/monthly-period-repository.js';
 import { assertMonth } from './validation.js';
@@ -18,6 +18,6 @@ export class PeriodService {
       return existingPeriods;
     }
 
-    return this.periods.createForMonth(targetMonth, generateMonthlyPeriods(targetMonth));
+    return this.periods.createForMonth(targetMonth, [generateWholeMonthPeriod(targetMonth)]);
   }
 }

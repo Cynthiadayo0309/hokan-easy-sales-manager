@@ -1,6 +1,7 @@
 import { calculateEntryDetail } from '../../shared/calculations/entries.js';
+import { applyEntryBilling, billingModeForCategory } from '../../shared/calculations/billing.js';
 import { calculateAchievement, calculateForecast } from '../../shared/calculations/dashboard.js';
-import { generateMonthlyPeriods } from '../../shared/calculations/periods.js';
+import { generateWholeMonthPeriod } from '../../shared/calculations/periods.js';
 import type {
   CalculatedEntrySummary,
   DashboardFacilityRow,
@@ -59,6 +60,7 @@ export class DashboardService {
     const entryDetails = new Map(
       entries.map((entry) => [entry.id, this.entries.listDetails(entry.id)])
     );
+    const categoryMap = new Map(nursingCategories.map((category) => [category.id, category]));
     const targetRows = this.targets
       .getByMonth(targetMonth)
       .filter(
@@ -101,7 +103,10 @@ export class DashboardService {
       const periodAccumulator = periodAccumulators.get(entry.monthlyPeriodId);
 
       entryDetails.get(entry.id)?.forEach((detail) => {
-        const actual = calculateEntryDetail(detail);
+        const category = categoryMap.get(detail.nursingCategoryId);
+        const billingMode = category ? billingModeForCategory(category) : 'weekly';
+        const billedDetail = applyEntryBilling(detail, billingMode, 0);
+        const actual = calculateEntryDetail(billedDetail);
         const categoryAccumulator = categoryAccumulators.get(detail.nursingCategoryId);
 
         addActual(summaryAccumulator, actual);
@@ -160,7 +165,7 @@ export class DashboardService {
       return existingPeriods;
     }
 
-    return this.periods.createForMonth(targetMonth, generateMonthlyPeriods(targetMonth));
+    return this.periods.createForMonth(targetMonth, [generateWholeMonthPeriod(targetMonth)]);
   }
 
   private calculateCompletedDayCount(
