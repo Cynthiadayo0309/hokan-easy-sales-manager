@@ -1,0 +1,1076 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>訪看かんたん売上管理｜ご紹介資料</title>
+  <style>
+    :root {
+      --ink: #17242c;
+      --muted: #5d6b73;
+      --teal: #0f766e;
+      --teal-dark: #075b55;
+      --teal-pale: #e7f4f2;
+      --mint: #cce9e4;
+      --line: #d9e1e5;
+      --paper: #f5f7f8;
+      --white: #ffffff;
+      --amber: #d58b24;
+      --amber-pale: #fff5e6;
+      --green: #2d8550;
+      --green-pale: #e7f5ec;
+      --red: #a13a3a;
+      --red-pale: #fff0f0;
+      --navy: #244653;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      background: #dfe5e8;
+      color: var(--ink);
+      font-family: "BIZ UDPGothic", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    @page { size: A4 landscape; margin: 0; }
+
+    .slide {
+      position: relative;
+      width: 297mm;
+      height: 210mm;
+      overflow: hidden;
+      page-break-after: always;
+      background: var(--paper);
+      padding: 15mm 18mm 13mm;
+    }
+
+    .slide:last-child { page-break-after: auto; }
+
+    .slide::after {
+      content: attr(data-page);
+      position: absolute;
+      right: 12mm;
+      bottom: 7mm;
+      color: #7e8a91;
+      font-size: 8.5pt;
+      font-weight: 700;
+    }
+
+    .footer-brand {
+      position: absolute;
+      left: 18mm;
+      bottom: 7mm;
+      color: #78858c;
+      font-size: 8.5pt;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+
+    .kicker {
+      margin: 0 0 3mm;
+      color: var(--teal);
+      font-size: 10pt;
+      font-weight: 800;
+      letter-spacing: .12em;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h2 {
+      margin-bottom: 3mm;
+      font-size: 27pt;
+      line-height: 1.25;
+      letter-spacing: -.02em;
+    }
+
+    .lead {
+      max-width: 235mm;
+      margin-bottom: 7mm;
+      color: var(--muted);
+      font-size: 12.5pt;
+      line-height: 1.8;
+    }
+
+    .highlight { color: var(--teal); }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 2mm;
+      min-height: 9mm;
+      border: 1px solid #b9d9d5;
+      border-radius: 99px;
+      background: rgba(255,255,255,.9);
+      color: var(--teal-dark);
+      padding: 1.8mm 4mm;
+      font-size: 9pt;
+      font-weight: 800;
+    }
+
+    .tag::before {
+      content: "";
+      width: 2mm;
+      height: 2mm;
+      border-radius: 50%;
+      background: var(--teal);
+    }
+
+    .cover {
+      display: grid;
+      grid-template-columns: 1fr 1.14fr;
+      gap: 17mm;
+      align-items: center;
+      background:
+        radial-gradient(circle at 12% 12%, rgba(204,233,228,.85), transparent 34%),
+        linear-gradient(135deg, #f7faf9 0%, #eef5f3 58%, #e2efed 100%);
+    }
+
+    .cover::before {
+      content: "";
+      position: absolute;
+      width: 105mm;
+      height: 105mm;
+      right: -35mm;
+      top: -48mm;
+      border: 1px solid rgba(15,118,110,.15);
+      border-radius: 50%;
+    }
+
+    .cover-copy { position: relative; z-index: 2; }
+
+    .cover-brand {
+      display: flex;
+      align-items: center;
+      gap: 4mm;
+      margin-bottom: 12mm;
+    }
+
+    .logo {
+      display: grid;
+      width: 15mm;
+      height: 15mm;
+      place-items: center;
+      border-radius: 3mm;
+      background: var(--teal);
+      color: white;
+      box-shadow: 0 3mm 8mm rgba(15,118,110,.18);
+      font-size: 22pt;
+      font-weight: 900;
+    }
+
+    .cover-brand strong { display: block; font-size: 13pt; }
+    .cover-brand small { color: var(--muted); font-size: 9pt; }
+
+    .cover h1 {
+      margin: 0 0 6mm;
+      font-size: 36pt;
+      line-height: 1.28;
+      letter-spacing: -.035em;
+    }
+
+    .cover h1 span { display: block; color: var(--teal); }
+
+    .cover .subtitle {
+      max-width: 116mm;
+      margin-bottom: 9mm;
+      color: #465860;
+      font-size: 14pt;
+      line-height: 1.8;
+      font-weight: 700;
+    }
+
+    .tag-row { display: flex; flex-wrap: wrap; gap: 3mm; }
+
+    .cover-meta {
+      margin-top: 12mm;
+      color: #6a787f;
+      font-size: 9pt;
+      line-height: 1.7;
+    }
+
+    .app-frame {
+      border: 1px solid #cfdadd;
+      border-radius: 4mm;
+      background: white;
+      box-shadow: 0 8mm 18mm rgba(38,69,78,.16);
+      overflow: hidden;
+    }
+
+    .window-bar {
+      display: flex;
+      align-items: center;
+      gap: 2mm;
+      height: 9mm;
+      border-bottom: 1px solid var(--line);
+      background: #f9fbfb;
+      padding: 0 4mm;
+    }
+
+    .window-bar i {
+      display: block;
+      width: 2.2mm;
+      height: 2.2mm;
+      border-radius: 50%;
+      background: #ccd5d9;
+    }
+
+    .window-bar span {
+      margin-left: 2mm;
+      color: #6b777e;
+      font-size: 7pt;
+      font-style: normal;
+      font-weight: 700;
+    }
+
+    .mini-app {
+      display: grid;
+      grid-template-columns: 34mm 1fr;
+      min-height: 132mm;
+    }
+
+    .mini-sidebar {
+      background: #fff;
+      border-right: 1px solid var(--line);
+      padding: 5mm 4mm;
+    }
+
+    .mini-brand {
+      display: flex;
+      align-items: center;
+      gap: 2mm;
+      margin-bottom: 7mm;
+      font-size: 7pt;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
+    .mini-mark {
+      display: grid;
+      flex: 0 0 auto;
+      width: 9mm;
+      height: 9mm;
+      place-items: center;
+      border-radius: 2mm;
+      background: var(--teal);
+      color: #fff;
+      font-size: 10pt;
+    }
+
+    .mini-nav { display: grid; gap: 2mm; }
+
+    .mini-nav span {
+      border-radius: 1.5mm;
+      color: #56656d;
+      padding: 2.4mm 2.5mm;
+      font-size: 6.5pt;
+      font-weight: 800;
+    }
+
+    .mini-nav .active { background: var(--teal-pale); color: var(--teal-dark); }
+
+    .mini-main { background: #f6f7f9; }
+
+    .mini-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 15mm;
+      border-bottom: 1px solid var(--line);
+      background: white;
+      padding: 0 6mm;
+    }
+
+    .mini-top strong { font-size: 10pt; }
+    .mini-pill { border-radius: 99px; background: #eef2f5; padding: 1.5mm 3mm; color: #526169; font-size: 6.5pt; font-weight: 800; }
+
+    .mini-content { padding: 5mm; }
+
+    .mini-heading {
+      border: 1px solid var(--line);
+      border-radius: 2mm;
+      background: white;
+      padding: 4mm;
+    }
+
+    .mini-heading small { color: var(--teal); font-size: 6pt; font-weight: 900; }
+    .mini-heading h3 { margin: 1.5mm 0 0; font-size: 11pt; }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2.5mm;
+      margin-top: 4mm;
+    }
+
+    .metric {
+      min-height: 24mm;
+      border: 1px solid var(--line);
+      border-radius: 2mm;
+      background: white;
+      padding: 3mm;
+    }
+
+    .metric small { display: block; color: #718087; font-size: 5.5pt; font-weight: 800; }
+    .metric b { display: block; margin-top: 2mm; font-size: 11pt; }
+    .metric b.teal { color: var(--teal); }
+
+    .mini-panel {
+      margin-top: 3mm;
+      border: 1px solid var(--line);
+      border-radius: 2mm;
+      background: white;
+      padding: 3.5mm;
+    }
+
+    .mini-panel-header { display: flex; justify-content: space-between; align-items: center; }
+    .mini-panel-header strong { font-size: 8pt; }
+    .mini-button { border-radius: 1.5mm; background: var(--teal); color: white; padding: 2mm 3.5mm; font-size: 6pt; font-weight: 900; }
+
+    .progress {
+      height: 3mm;
+      margin-top: 3mm;
+      border-radius: 99px;
+      background: #e6ebed;
+      overflow: hidden;
+    }
+
+    .progress span { display: block; height: 100%; width: 78%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), #43a69b); }
+
+    .tiny-table { margin-top: 2.5mm; font-size: 5.8pt; }
+    .tiny-row { display: grid; grid-template-columns: 1.6fr repeat(3, 1fr); gap: 2mm; border-bottom: 1px solid #e6ecee; padding: 1.7mm 0; }
+    .tiny-row.head { color: #738087; font-weight: 800; }
+
+    .cards-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
+    .cards-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 3mm;
+      background: var(--white);
+      padding: 6mm;
+      box-shadow: 0 1.5mm 4mm rgba(36,70,83,.06);
+    }
+
+    .card h3 { margin: 0 0 3mm; font-size: 14pt; line-height: 1.4; }
+    .card p { margin: 0; color: var(--muted); font-size: 10pt; line-height: 1.75; }
+
+    .icon-box {
+      display: grid;
+      width: 12mm;
+      height: 12mm;
+      place-items: center;
+      margin-bottom: 5mm;
+      border-radius: 3mm;
+      background: var(--teal-pale);
+      color: var(--teal);
+      font-size: 17pt;
+      font-weight: 900;
+    }
+
+    .problem-card { position: relative; min-height: 65mm; }
+    .problem-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2.2mm;
+      border-radius: 3mm 3mm 0 0;
+      background: #c8d3d7;
+    }
+
+    .arrow-band {
+      display: grid;
+      grid-template-columns: 1fr 22mm 1fr;
+      align-items: center;
+      gap: 5mm;
+      margin-top: 6mm;
+    }
+
+    .before, .after {
+      border-radius: 3mm;
+      padding: 6mm;
+    }
+
+    .before { background: #eef1f3; color: #4f5e66; }
+    .after { background: var(--teal-pale); color: var(--teal-dark); }
+    .before strong, .after strong { display: block; margin-bottom: 2mm; font-size: 14pt; }
+    .before p, .after p { margin: 0; font-size: 10pt; line-height: 1.65; }
+
+    .big-arrow {
+      display: grid;
+      width: 16mm;
+      height: 16mm;
+      place-items: center;
+      margin: auto;
+      border-radius: 50%;
+      background: var(--teal);
+      color: white;
+      font-size: 19pt;
+      font-weight: 900;
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      margin-top: 7mm;
+      border: 1px solid var(--line);
+      border-radius: 4mm;
+      background: white;
+      overflow: hidden;
+      box-shadow: 0 2mm 6mm rgba(36,70,83,.07);
+    }
+
+    .workflow-step {
+      position: relative;
+      min-height: 87mm;
+      padding: 8mm;
+      border-right: 1px solid var(--line);
+    }
+
+    .workflow-step:last-child { border-right: 0; }
+
+    .step-no {
+      display: grid;
+      width: 10mm;
+      height: 10mm;
+      place-items: center;
+      margin-bottom: 6mm;
+      border-radius: 50%;
+      background: var(--teal);
+      color: white;
+      font-size: 12pt;
+      font-weight: 900;
+    }
+
+    .workflow-step h3 { margin-bottom: 3mm; font-size: 17pt; }
+    .workflow-step p { color: var(--muted); font-size: 10.5pt; line-height: 1.75; }
+
+    .step-visual {
+      position: absolute;
+      right: 7mm;
+      bottom: 7mm;
+      left: 7mm;
+      height: 25mm;
+      border-radius: 2.5mm;
+      background: linear-gradient(135deg, #e8f4f2, #f7fbfa);
+      padding: 4mm;
+      color: var(--teal-dark);
+      font-size: 9pt;
+      font-weight: 800;
+    }
+
+    .screen-layout {
+      display: grid;
+      grid-template-columns: 1.72fr .8fr;
+      gap: 8mm;
+      align-items: start;
+      margin-top: 5mm;
+    }
+
+    .screen-layout.reverse { grid-template-columns: .8fr 1.72fr; }
+
+    .screen-layout .app-frame { box-shadow: 0 5mm 12mm rgba(36,70,83,.14); }
+
+    .screen-layout .app-frame.large-screen {
+      width: 100%;
+      zoom: .86;
+    }
+
+    .screen-layout.reverse > div:last-child .app-frame.large-screen { margin-left: auto; }
+
+    .callouts { display: grid; gap: 4mm; }
+
+    .callout {
+      position: relative;
+      border-left: 2mm solid var(--teal);
+      border-radius: 0 2.5mm 2.5mm 0;
+      background: white;
+      padding: 4.5mm 5mm;
+      box-shadow: 0 1mm 3mm rgba(36,70,83,.05);
+    }
+
+    .callout b { display: block; margin-bottom: 1.5mm; font-size: 11pt; }
+    .callout p { margin: 0; color: var(--muted); font-size: 8.8pt; line-height: 1.6; }
+
+    .callout small {
+      display: inline-grid;
+      place-items: center;
+      width: 6mm;
+      height: 6mm;
+      margin-right: 2mm;
+      border-radius: 50%;
+      background: var(--teal);
+      color: white;
+      font-size: 7pt;
+      vertical-align: middle;
+    }
+
+    .demo-note { margin-top: 3mm; color: #7b878d; font-size: 7.5pt; }
+
+    .large-screen .mini-app { grid-template-columns: 43mm 1fr; min-height: 126mm; }
+    .large-screen .mini-sidebar { padding: 5mm; }
+    .large-screen .mini-top { height: 16mm; }
+    .large-screen .mini-content { padding: 5mm; }
+
+    .dashboard-hero {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid var(--line);
+      border-radius: 2mm;
+      background: white;
+      padding: 3.5mm 4mm;
+    }
+
+    .dashboard-hero small { color: var(--teal); font-size: 5.5pt; font-weight: 900; }
+    .dashboard-hero strong { display: block; margin-top: 1mm; font-size: 9pt; }
+    .month-nav { display: flex; gap: 1.5mm; }
+    .month-nav i { border-radius: 1.2mm; background: #e7edf0; padding: 1.8mm 2.7mm; color: #53636b; font-size: 5.5pt; font-style: normal; font-weight: 800; }
+
+    .input-context {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2mm;
+      margin-top: 3mm;
+    }
+
+    .input-context div { border: 1px solid var(--line); border-radius: 1.5mm; background: white; padding: 2mm; }
+    .input-context small { display: block; color: #77858c; font-size: 5pt; }
+    .input-context b { font-size: 6.5pt; }
+
+    .tabs { display: flex; gap: 1.5mm; margin-top: 3mm; }
+    .tabs span { border: 1px solid var(--line); border-radius: 1.3mm; background: white; padding: 2mm 3mm; color: #55656d; font-size: 5.7pt; font-weight: 800; }
+    .tabs .active { border-color: var(--teal); background: var(--teal-pale); color: var(--teal-dark); }
+
+    .entry-grid { margin-top: 3mm; border: 1px solid var(--line); border-radius: 2mm; background: white; padding: 3mm; }
+    .entry-line { display: grid; grid-template-columns: 1.2fr .75fr 1fr; gap: 3mm; align-items: center; border-bottom: 1px solid #e8edef; padding: 2mm 0; font-size: 6pt; }
+    .entry-line:last-child { border-bottom: 0; }
+    .entry-line.head { color: #718087; font-weight: 800; }
+    .fake-input { border: 1px solid #b8c4ca; border-radius: 1mm; background: white; padding: 1.7mm 2mm; text-align: right; font-weight: 800; }
+    .entry-line .money { text-align: right; font-weight: 800; }
+
+    .action-row { display: flex; justify-content: flex-end; gap: 2mm; margin-top: 3mm; }
+    .action-row span { border-radius: 1.2mm; background: #e7edf0; padding: 2.2mm 3.2mm; color: #45565e; font-size: 5.5pt; font-weight: 900; }
+    .action-row .primary { background: var(--teal); color: white; }
+
+    .settings-preview { min-height: 126mm; }
+    .settings-table { margin-top: 3mm; border: 1px solid var(--line); border-radius: 2mm; background: white; padding: 3mm; }
+    .settings-row { display: grid; grid-template-columns: 1.1fr 1fr .8fr 1.3fr; align-items: center; gap: 2mm; border-bottom: 1px solid #e7edef; padding: 1.8mm 0; font-size: 5.7pt; }
+    .settings-row:last-child { border-bottom: 0; }
+    .settings-row.head { color: #718087; font-weight: 800; }
+    .sample-input { border: 1px solid #bdc7cc; border-radius: 1mm; padding: 1.5mm 2mm; text-align: right; }
+
+    .split-feature { display: grid; grid-template-columns: 1fr 1fr; gap: 7mm; margin-top: 6mm; }
+    .feature-panel { border: 1px solid var(--line); border-radius: 4mm; background: white; overflow: hidden; box-shadow: 0 2mm 7mm rgba(36,70,83,.07); }
+    .feature-head { padding: 6mm 7mm 4mm; }
+    .feature-head .label { color: var(--teal); font-size: 8.5pt; font-weight: 900; letter-spacing: .08em; }
+    .feature-head h3 { margin: 2mm 0 2mm; font-size: 18pt; }
+    .feature-head p { margin: 0; color: var(--muted); font-size: 9.5pt; line-height: 1.7; }
+    .feature-body { border-top: 1px solid var(--line); background: #f8fafb; padding: 5mm 7mm 7mm; }
+
+    .stat-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; }
+    .stat { border: 1px solid var(--line); border-radius: 2mm; background: white; padding: 3mm; }
+    .stat small { display: block; color: #738188; font-size: 6pt; }
+    .stat b { display: block; margin-top: 1mm; font-size: 10pt; }
+
+    .list-table { margin-top: 3mm; }
+    .list-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 2mm; border-bottom: 1px solid var(--line); padding: 2mm 0; font-size: 6.5pt; }
+    .list-row.head { color: #748188; font-weight: 800; }
+
+    .status-banner { display: flex; justify-content: space-between; align-items: center; border: 1px solid #8fc9a8; border-radius: 2mm; background: var(--green-pale); color: #245f3b; padding: 3mm 4mm; font-size: 7pt; font-weight: 800; }
+    .status-banner span { border-radius: 1.2mm; background: var(--teal); color: white; padding: 2mm 3mm; }
+    .warning { margin-top: 3mm; border: 1px solid #e6c486; border-radius: 2mm; background: var(--amber-pale); color: #7a5219; padding: 3mm; font-size: 6.5pt; font-weight: 700; }
+
+    .trust-layout { display: grid; grid-template-columns: 1.12fr .88fr; gap: 9mm; margin-top: 4mm; }
+
+    .trust-diagram {
+      position: relative;
+      min-height: 126mm;
+      border-radius: 5mm;
+      background: linear-gradient(145deg, #0d6d66, #164f55);
+      color: white;
+      padding: 9mm;
+      overflow: hidden;
+    }
+
+    .trust-diagram::after {
+      content: "";
+      position: absolute;
+      right: -30mm;
+      bottom: -40mm;
+      width: 110mm;
+      height: 110mm;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 50%;
+    }
+
+    .shield {
+      display: grid;
+      width: 24mm;
+      height: 27mm;
+      place-items: center;
+      clip-path: polygon(50% 0, 92% 14%, 87% 67%, 50% 100%, 13% 67%, 8% 14%);
+      background: rgba(255,255,255,.16);
+      color: white;
+      font-size: 20pt;
+      font-weight: 900;
+    }
+
+    .trust-diagram h3 { margin: 7mm 0 3mm; font-size: 23pt; line-height: 1.35; }
+    .trust-diagram p { max-width: 95mm; color: rgba(255,255,255,.8); font-size: 10pt; line-height: 1.8; }
+
+    .local-flow { position: relative; z-index: 2; display: flex; align-items: center; gap: 4mm; margin-top: 9mm; }
+    .local-node { flex: 1; border: 1px solid rgba(255,255,255,.35); border-radius: 3mm; background: rgba(255,255,255,.09); padding: 4mm; text-align: center; font-size: 8pt; font-weight: 800; line-height: 1.5; }
+    .local-flow b { font-size: 15pt; }
+
+    .trust-cards { display: grid; gap: 4mm; }
+    .trust-card { border: 1px solid var(--line); border-radius: 3mm; background: white; padding: 5mm; }
+    .trust-card h3 { margin: 0 0 2mm; font-size: 13pt; }
+    .trust-card p { margin: 0; color: var(--muted); font-size: 9pt; line-height: 1.65; }
+    .trust-card .mini-icon { display: inline-grid; width: 8mm; height: 8mm; place-items: center; margin-right: 2.5mm; border-radius: 2mm; background: var(--teal-pale); color: var(--teal); font-weight: 900; vertical-align: middle; }
+
+    .start-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 10mm; margin-top: 5mm; }
+    .timeline { position: relative; display: grid; gap: 4mm; }
+    .timeline::before { content: ""; position: absolute; top: 7mm; bottom: 7mm; left: 6mm; width: 1px; background: #a8d2cd; }
+    .timeline-item { position: relative; display: grid; grid-template-columns: 12mm 1fr; gap: 4mm; align-items: start; }
+    .timeline-no { position: relative; z-index: 2; display: grid; width: 12mm; height: 12mm; place-items: center; border: 1.5mm solid var(--paper); border-radius: 50%; background: var(--teal); color: white; font-size: 10pt; font-weight: 900; }
+    .timeline-copy { min-height: 30mm; border: 1px solid var(--line); border-radius: 3mm; background: white; padding: 4.5mm 5mm; }
+    .timeline-copy h3 { margin: 0 0 2mm; font-size: 13pt; }
+    .timeline-copy p { margin: 0; color: var(--muted); font-size: 9pt; line-height: 1.65; }
+
+    .requirements { border-radius: 4mm; background: var(--navy); color: white; padding: 7mm; }
+    .requirements h3 { margin-bottom: 5mm; font-size: 17pt; }
+    .req-list { display: grid; gap: 3mm; }
+    .req-item { display: flex; gap: 3mm; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,.13); padding-bottom: 3mm; }
+    .req-item:last-child { border-bottom: 0; }
+    .check { display: grid; flex: 0 0 auto; width: 6mm; height: 6mm; place-items: center; border-radius: 50%; background: #4eaaa0; font-size: 7pt; font-weight: 900; }
+    .req-item b { display: block; margin-bottom: 1mm; font-size: 10pt; }
+    .req-item small { color: rgba(255,255,255,.7); font-size: 8pt; line-height: 1.5; }
+    .version-box { margin-top: 6mm; border: 1px solid rgba(255,255,255,.2); border-radius: 2.5mm; background: rgba(255,255,255,.07); padding: 4mm; }
+    .version-box small { display: block; color: rgba(255,255,255,.65); font-size: 7pt; }
+    .version-box strong { display: block; margin-top: 1mm; font-size: 11pt; }
+
+    .closing {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 14mm;
+      align-items: center;
+      background:
+        radial-gradient(circle at 75% 42%, rgba(204,233,228,.9), transparent 31%),
+        linear-gradient(135deg, #f8faf9, #edf4f2);
+    }
+
+    .closing h2 { margin-bottom: 5mm; font-size: 34pt; line-height: 1.35; }
+    .closing .lead { max-width: 120mm; margin-bottom: 8mm; }
+
+    .closing-points { display: flex; flex-wrap: wrap; gap: 3mm; }
+
+    .closing-card {
+      position: relative;
+      border-radius: 5mm;
+      background: var(--teal);
+      color: white;
+      padding: 10mm;
+      box-shadow: 0 7mm 18mm rgba(15,118,110,.2);
+      overflow: hidden;
+    }
+
+    .closing-card::after { content: "訪"; position: absolute; right: -5mm; bottom: -14mm; color: rgba(255,255,255,.08); font-size: 110pt; font-weight: 900; }
+    .closing-card h3 { position: relative; z-index: 2; margin-bottom: 7mm; font-size: 22pt; line-height: 1.45; }
+    .closing-card ul { position: relative; z-index: 2; margin: 0; padding: 0; list-style: none; }
+    .closing-card li { display: flex; align-items: center; gap: 3mm; border-bottom: 1px solid rgba(255,255,255,.2); padding: 4mm 0; font-size: 11pt; font-weight: 800; }
+    .closing-card li:last-child { border-bottom: 0; }
+    .closing-card li::before { content: "✓"; display: grid; width: 7mm; height: 7mm; place-items: center; border-radius: 50%; background: rgba(255,255,255,.18); font-size: 8pt; }
+
+    .fineprint { margin-top: 7mm; color: #78858c; font-size: 7.5pt; line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+  <section class="slide cover" data-page="01">
+    <div class="cover-copy">
+      <div class="cover-brand">
+        <div class="logo">訪</div>
+        <div>
+          <strong>訪看かんたん売上管理</strong>
+          <small>Hokan Easy Sales Manager</small>
+        </div>
+      </div>
+      <p class="kicker">PRODUCT INTRODUCTION</p>
+      <h1>入力はかんたん。<span>売上の現在地は、ひと目で。</span></h1>
+      <p class="subtitle">施設ごとの月次人数を入力するだけで、売上見込みと目標達成状況を自動集計するWindowsアプリです。</p>
+      <div class="tag-row">
+        <span class="tag">Windows 10 / 11</span>
+        <span class="tag">オフライン動作</span>
+        <span class="tag">ローカル保存</span>
+      </div>
+      <p class="cover-meta">ご紹介資料｜v0.1.1 対応<br>2026年7月</p>
+    </div>
+
+    <div class="app-frame" aria-label="ホーム画面イメージ">
+      <div class="window-bar"><i></i><i></i><i></i><span>訪看かんたん売上管理</span></div>
+      <div class="mini-app">
+        <aside class="mini-sidebar">
+          <div class="mini-brand"><span class="mini-mark">訪</span><span>訪看かんたん<br>売上管理</span></div>
+          <div class="mini-nav">
+            <span class="active">ホーム</span><span>月次入力</span><span>施設別</span><span>過去月</span><span>目標・単価設定</span><span>バックアップ・設定</span>
+          </div>
+        </aside>
+        <main class="mini-main">
+          <div class="mini-top"><strong>ホーム</strong><span class="mini-pill">製品版</span></div>
+          <div class="mini-content">
+            <div class="mini-heading"><small>月間ダッシュボード</small><h3>2026年7月の売上見込み</h3></div>
+            <div class="metrics">
+              <div class="metric"><small>月間目標</small><b>5,000千円</b></div>
+              <div class="metric"><small>月間累計</small><b>3,900千円</b></div>
+              <div class="metric"><small>達成率</small><b class="teal">78.0%</b></div>
+              <div class="metric"><small>目標まで</small><b>1,100千円</b></div>
+            </div>
+            <div class="mini-panel">
+              <div class="mini-panel-header"><strong>入力状況</strong><span class="mini-button">月次入力へ</span></div>
+              <div class="progress"><span></span></div>
+            </div>
+            <div class="mini-panel">
+              <div class="mini-panel-header"><strong>施設別</strong><span class="mini-pill">5施設</span></div>
+              <div class="tiny-table">
+                <div class="tiny-row head"><span>施設</span><span>目標</span><span>累計</span><span>達成率</span></div>
+                <div class="tiny-row"><b>施設A</b><span>1,000</span><span>840</span><span>84.0%</span></div>
+                <div class="tiny-row"><b>施設B</b><span>1,100</span><span>920</span><span>83.6%</span></div>
+                <div class="tiny-row"><b>施設C</b><span>900</span><span>690</span><span>76.7%</span></div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-page="02">
+    <p class="kicker">WHY THIS APP</p>
+    <h2>売上管理で、こんな負担はありませんか？</h2>
+    <p class="lead">複数施設・複数区分の実績を表計算で管理すると、集計や確認に手間がかかり、数字の現在地も見えにくくなります。</p>
+
+    <div class="cards-3">
+      <article class="card problem-card">
+        <div class="icon-box">表</div>
+        <h3>表計算が複雑になる</h3>
+        <p>施設や看護区分が増えるほど、シート・数式・転記箇所が増え、入力ルールも分かりにくくなります。</p>
+      </article>
+      <article class="card problem-card">
+        <div class="icon-box">計</div>
+        <h3>集計に時間がかかる</h3>
+        <p>実績を入力したあとに、売上換算、施設別集計、目標との差を計算する作業が発生します。</p>
+      </article>
+      <article class="card problem-card">
+        <div class="icon-box">?</div>
+        <h3>進捗がすぐ見えない</h3>
+        <p>「今いくらか」「目標までいくらか」を確認するために、複数の表やセルを探す必要があります。</p>
+      </article>
+    </div>
+
+    <div class="arrow-band">
+      <div class="before"><strong>これまで</strong><p>入力 → 転記 → 計算 → 照合 → 集計表更新</p></div>
+      <div class="big-arrow">→</div>
+      <div class="after"><strong>本アプリなら</strong><p>人数を入力 → 売上見込みと達成率を自動表示</p></div>
+    </div>
+    <span class="footer-brand">訪看かんたん売上管理</span>
+  </section>
+
+  <section class="slide" data-page="03">
+    <p class="kicker">SIMPLE WORKFLOW</p>
+    <h2>月の運用は、<span class="highlight">3つの流れ</span>で完結</h2>
+    <p class="lead">最初に施設・単価・目標を登録したら、通常の運用は月次人数の入力と確認が中心です。</p>
+
+    <div class="workflow">
+      <article class="workflow-step">
+        <div class="step-no">1</div>
+        <h3>目標を設定</h3>
+        <p>対象年月ごとに、施設・看護区分別の目標人数と目標売上を登録します。前月の目標コピーにも対応します。</p>
+        <div class="step-visual">対象月 × 施設 × 看護区分<br><b>目標を一元管理</b></div>
+      </article>
+      <article class="workflow-step">
+        <div class="step-no">2</div>
+        <h3>月次人数を入力</h3>
+        <p>介護・別表7・精神・特指示の人数を施設ごとに入力。売上見込みは入力と同時に自動計算されます。</p>
+        <div class="step-visual">入力するのは基本的に人数<br><b>保存して次の施設へ</b></div>
+      </article>
+      <article class="workflow-step">
+        <div class="step-no">3</div>
+        <h3>進捗を確認・締め</h3>
+        <p>ホームで月間累計と達成率を確認。未入力をチェックし、入力が完了した月は締めて保護できます。</p>
+        <div class="step-visual">全体・施設別・区分別<br><b>結果をひと目で確認</b></div>
+      </article>
+    </div>
+    <span class="footer-brand">訪看かんたん売上管理</span>
+  </section>
+
+  <section class="slide" data-page="04">
+    <p class="kicker">HOME DASHBOARD</p>
+    <h2>目標と実績の差を、ホームでひと目に</h2>
+    <p class="lead">月間目標、月間累計、達成率、目標までの金額を大きく表示。施設別・看護区分別の内訳も同じ画面で確認できます。</p>
+
+    <div class="screen-layout">
+      <div>
+        <div class="app-frame large-screen">
+          <div class="window-bar"><i></i><i></i><i></i><span>訪看かんたん売上管理｜ホーム</span></div>
+          <div class="mini-app">
+            <aside class="mini-sidebar">
+              <div class="mini-brand"><span class="mini-mark">訪</span><span>訪看かんたん<br>売上管理</span></div>
+              <div class="mini-nav"><span class="active">ホーム</span><span>月次入力</span><span>施設別</span><span>過去月</span><span>目標・単価設定</span><span>バックアップ・設定</span></div>
+            </aside>
+            <main class="mini-main">
+              <div class="mini-top"><strong>ホーム</strong><span class="mini-pill">製品版　v0.1.1</span></div>
+              <div class="mini-content">
+                <div class="dashboard-hero">
+                  <div><small>月間ダッシュボード</small><strong>2026年7月の売上見込み</strong></div>
+                  <div class="month-nav"><i>前月</i><i>今月</i><i>翌月</i></div>
+                </div>
+                <div class="metrics">
+                  <div class="metric"><small>月間目標</small><b>5,000千円</b></div>
+                  <div class="metric"><small>月間累計</small><b>3,900千円</b></div>
+                  <div class="metric"><small>達成率</small><b class="teal">78.0%</b></div>
+                  <div class="metric"><small>目標まで</small><b>1,100千円</b></div>
+                </div>
+                <div class="mini-panel">
+                  <div class="mini-panel-header"><strong>入力状況　5施設中4施設が入力完了です。</strong><span class="mini-button">月次入力へ</span></div>
+                  <div class="progress"><span></span></div>
+                </div>
+                <div class="mini-panel">
+                  <div class="mini-panel-header"><strong>施設別</strong><span class="mini-pill">5施設</span></div>
+                  <div class="tiny-table">
+                    <div class="tiny-row head"><span>施設</span><span>目標</span><span>累計</span><span>達成率</span></div>
+                    <div class="tiny-row"><b>施設A</b><span>1,000千円</span><span>840千円</span><span>84.0%</span></div>
+                    <div class="tiny-row"><b>施設B</b><span>1,100千円</span><span>920千円</span><span>83.6%</span></div>
+                    <div class="tiny-row"><b>施設C</b><span>900千円</span><span>690千円</span><span>76.7%</span></div>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+        <p class="demo-note">※画面内の施設名・数値は説明用サンプルです。</p>
+      </div>
+      <div class="callouts">
+        <div class="callout"><b><small>1</small>主要数値を大きく表示</b><p>目標・累計・達成率・残額を探さず確認できます。</p></div>
+        <div class="callout"><b><small>2</small>対象月をすぐ切り替え</b><p>前月・今月・翌月の比較や、年月指定がかんたんです。</p></div>
+        <div class="callout"><b><small>3</small>未入力を把握</b><p>入力完了施設数を表示し、月次入力へそのまま移動できます。</p></div>
+        <div class="callout"><b><small>4</small>内訳も同じ画面で</b><p>施設別と看護区分別を、表形式の数値で確認できます。</p></div>
+      </div>
+    </div>
+    <span class="footer-brand">訪看かんたん売上管理</span>
+  </section>
+
+  <section class="slide" data-page="05">
+    <p class="kicker">MONTHLY INPUT</p>
+    <h2>人数を入れると、売上見込みを自動計算</h2>
+    <p class="lead">対象年月と施設を選び、4つの看護区分の月次人数を入力。保存状態も日本語で分かりやすく表示します。</p>
+
+    <div class="screen-layout reverse">
+      <div class="callouts">
+        <div class="callout"><b><small>1</small>施設タブで切り替え</b><p>施設ごとの「未入力・一時保存・入力完了」を確認しながら進められます。</p></div>
+        <div class="callout"><b><small>2</small>入力は0以上の整数</b><p>介護・別表7・精神・特指示の人数を、分かりやすい1列で入力します。</p></div>
+        <div class="callout"><b><small>3</small>その場で自動集計</b><p>月次人数合計と売上見込みが入力直後に更新されます。</p></div>
+        <div class="callout"><b><small>4</small>連続入力を支援</b><p>「保存して次の施設へ」で、5施設を順番に入力できます。</p></div>
+      </div>
+      <div>
+        <div class="app-frame large-screen">
+          <div class="window-bar"><i></i><i></i><i></i><span>訪看かんたん売上管理｜月次入力</span></div>
+          <div class="mini-app">
+            <aside class="mini-sidebar">
+              <div class="mini-brand"><span class="mini-mark">訪</span><span>訪看かんたん<br>売上管理</span></div>
+              <div class="mini-nav"><span>ホーム</span><span class="active">月次入力</span><span>施設別</span><span>過去月</span><span>目標・単価設定</span><span>バックアップ・設定</span></div>
+            </aside>
+            <main class="mini-main">
+              <div class="mini-top"><strong>月次入力</strong><span class="mini-pill">製品版</span></div>
+              <div class="mini-content">
+                <div class="dashboard-hero"><div><small>月次実績入力</small><strong>施設ごとの月次人数を入力する</strong></div><div class="mini-pill">入力完了 4 / 5施設</div></div>
+                <div class="tabs"><span class="active">施設A<br><small>入力完了</small></span><span>施設B<br><small>入力完了</small></span><span>施設C<br><small>一時保存</small></span><span>施設D<br><small>入力完了</small></span><span>施設E<br><small>未入力</small></span></div>
+                <div class="input-context"><div><small>対象月</small><b>2026年7月</b></div><div><small>現在の施設</small><b>施設A</b></div><div><small>保存状態</small><b>入力完了</b></div></div>
+                <div class="metrics" style="grid-template-columns:repeat(2,1fr)"><div class="metric"><small>月次人数合計</small><b>118人</b></div><div class="metric"><small>売上見込み</small><b class="teal">840,000円</b></div></div>
+                <div class="entry-grid">
+                  <div class="entry-line head"><span>看護区分</span><span>月次人数</span><span>売上見込み</span></div>
+                  <div class="entry-line"><b>介護</b><span class="fake-input">42</span><span class="money">294,000円</span></div>
+                  <div class="entry-line"><b>別表7</b><span class="fake-input">28</span><span class="money">224,000円</span></div>
+                  <div class="entry-line"><b>精神</b><span class="fake-input">31</span><span class="money">217,000円</span></div>
+                  <div class="entry-line"><b>特指示</b><span class="fake-input">17</span><span class="money">105,000円</span></div>
+                </div>
+                <div class="action-row"><span>すべて0人</span><span>一時保存</span><span class="primary">保存して次の施設へ</span><span class="primary">入力完了</span></div>
+              </div>
+            </main>
+          </div>
+        </div>
+        <p class="demo-note">※画面内の施設名・数値は説明用サンプルです。</p>
+      </div>
+    </div>
+    <span class="footer-brand">訪看かんたん売上管理</span>
+  </section>
+
+  <section class="slide" data-page="06">
+    <p class="kicker">SETTINGS</p>
+    <h2>施設・単価・月間目標を、まとめて管理</h2>
+    <p class="lead">日々の入力画面と設定画面を分けることで、通常操作をシンプルに。目標は対象月・施設・看護区分ごとに登録できます。</p>
+
+    <div class="screen-layout">
+      <div>
+        <div class="app-frame large-screen settings-preview">
+          <div class="window-bar"><i></i><i></i><i></i><span>訪看かんたん売上管理｜目標・単価設定</span></div>
+          <div class="mini-app">
+            <aside class="mini-sidebar">
+              <div class="mini-brand"><span class="mini-mark">訪</span><span>訪看かんたん<br>売上管理</span></div>
+              <div class="mini-nav"><span>ホーム</span><span>月次入力</span><span>施設別</span><span>過去月</span><span class="active">目標・単価設定</span><span>バックアップ・設定</span></div>
+            </aside>
+            <main class="mini-main">
+              <div class="mini-top"><strong>目標・単価設定</strong><span class="mini-pill">製品版</span></div>
+              <div class="mini-content">
+                <div class="dashboard-hero"><div><small>目標・単価設定</small><strong>運用に必要な基本情報を設定</strong></div><div class="mini-pill">売上の単位：千円</div></div>
+                <div class="tabs"><span>施設設定</span><span>売上単価</span><span class="active">月間目標</span></div>
+                <div class="dashboard-hero" style="margin-top:3mm"><div><small>対象年月</small><strong>2026年7月</strong></div><div class="action-row" style="margin:0"><span>前月の目標をコピー</span></div></div>
+                <div class="settings-table">
+                  <div class="settings-row head"><span>施設</span><span>区分</span><span>目標人数</span><span>目標売上（千円）</span></div>
+                  <div class="settings-row"><b>施設A</b><span>介護</span><span class="sample-input">50</span><span class="sample-input">350.0</span></div>
+                  <div class="settings-row"><b>施設A</b><span>別表7</span><span class="sample-input">35</span><span class="sample-input">280.0</span></div>
+                  <div class="settings-row"><b>施設A</b><span>精神</span><span class="sample-input">32</span><span class="sample-input">224.0</span></div>
+                  <div class="settings-row"><b>施設A</b><span>特指示</span><span class="sample-input">21</span><span class="sample-input">126.0</span></div>
+                  <div class="settings-row"><b>施設B</b><span>介護</span><span class="sample-input">58</span><span class="sample-input">406.0</span></div>
+                  <div class="settings-row"><b>施設B</b><span>別表7</span><span class="sample-input">37</span><span class="sample-input">296.0</span></div>
+                </div>
+                <div class="action-row"><span class="primary">月間目標を保存</span></div>
+              </div>
+            </main>
+          </div>
+        </div>
+        <p class="demo-note">※画面内の施設名・数値は説明用サンプルです。</p>
+      </div>
+      <div class="callouts">
+        <div class="callout"><b>施設設定</b><p>初期5施設の名称変更に加え、施設の追加・停止にも対応します。</p></div>
+        <div class="callout"><b>売上単価</b><p>介護・別表7・精神・特指示の単価を、適用開始月ごとに千円単位で登録します。</p></div>
+        <div class="callout"><b>月間目標</b><p>施設・区分別の目標人数と目標売上を登録し、達成率の基準にします。</p></div>
+        <div class="callout"><b>前月コピー</b><p>定例の目標設定は前月データをコピーし、必要箇所だけ調整できます。</p></div>
+      </div>
+    </div>
+    <span class="footer-brand">訪看かんたん売上管理</span>
+  </section>
+
+  <section class="slide" data-page="07">
+    <p class="kicker">REVIEW & CLOSE</p>
+    <h2>施設別の確認から、月締めまで</h2>
+    <p class="lead">必要な粒度で実績を確認し、入力が終わった月は締め処理で保護。必要に応じて再開もできます。</p>
+
+    <div class="split-feature">
+      <article class="feature-panel">
+        <div class="feature-head"><span class="label">FACILITY VIEW</span><h3>施設別の達成状況</h3><p>対象施設を選び、目標・累計・達成率・残額を確認します。</p></div>
+        <div class="feature-body">
+          <div class="stat-strip"><div class="stat"><small>月間目標</small><b>1,000千円</b></div><div class="stat"><small>月間累計</small><b>840千円</b></div><div class="stat"><small>達成率</small><b style="color:var(--teal)">84.0%</b></div></div>
+          <div class="list-table">
+            <div class="list-row head"><span>看護区分</span><span>累計</span><span>人数</span></div>
+            <div class="list-row"><b>介護</b><span>294千円</span><span>42人</span></div>
+            <div class="list-row"><b>別表7</b><span>224千円</span><span>28人</span></div>
+            <div class="list-row"><b>精神</b><span>217千円</span><span>31人</span></div>
+            <div class="list-row"><b>特指示</b><span>105千円</span><span>17人</span></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="feature-panel">
+        <div class="feature-head"><span class="label">MONTH CLOSING</span><h3>過去月・月締め</h3><p>未入力や目標未設定を確認し、入力が完了した月を締めます。</p></div>
+        <div class="feature-body">
+          <div class="stat-strip"><div class="stat"><small>月間累計</small><b>3,900千円</b></div><div class="stat"><small>前月との差</small><b>+220千円</b></div><div class="stat"><small>締め状態</small><b>未締め</b></div></div>
+          <div class="status-banner" style="margin-top:4mm"><b>確認が必要な項目はありません。</b><span>この月を締める</span></div>
+          <div class="warning">未入力がある場合は、対象施設を案内し、月締めボタンを無効化します。</div>
+        </div>
+      </article>
+    </div>
+
+    <div class="arrow-band" style="margin-top:5mm">
+      <div class="before"><strong>確認</strong><p>施設別・看護区分別・前月差をチェック</p></div>
+      <div class="big-arrow">→</div>
+      <div class="after"><strong>保護</strong><p>月締め後は通常入力を停止。必要時は確認して再開</p></div>
+    </div>
+    <p class="demo-note">※画面内の施設名・数値は説明用サンプルです。</p>
+    <span class="footer-brand">訪看かんたん売上管理</span>
+  </section>
+
+  <section class="slide" data-page="08">
+    <p class="kicker">DATA & SAFETY</p>
+    <h2>オフライン運用と、データ保全を両立</h2>
+    <p class="lead">インターネット接続やクラウドアカウントを必要とせず、入力データは利用端末内に保存。出力とバックアップも画面から行えます。</p>
+
+    <div class="trust-layout">
+      <div class="trust-diagram">
+        <div class="shield">✓</div>
+        <h3>業務データは<br>このパソコンの中に</h3>
+        <p>ローカルデスクトップアプリとして動作し、データベースはWindowsユーザーごとのアプリデータ領域へ保存されます。</p>
+        <div class="local-flow"><div class="local-node"><b>PC</b><br>アプリを操作</div><div style="font-size:18pt">→</div><div class="local-node"><b>DB</b><br>端末内に保存</div></div>
+      </div>
+
+      <div class="trust-cards">
+        <article class="trust-card"><h3><span class="mini-icon">出</span>CSV出力</h3><p>対象月の詳細CSVと月間集計CSVを保存。Excelで開きやすいUTF-8形式です。</p></article>
+        <article class="trust-card"><h3><span class="mini-icon">保</span>バックアップ</h3><p>データベースをファイルとして保存。定期的な保全や端末移行に利用できます。</p></article>
+        <article class="trust-card"><h3><span class="mini-icon">復</span>安全な復元</h3><p>復元は2段階確認。実行前に現在のデータを自動退避し、失敗時は現データを維持します。</p></article>
+        <article class="trust-card"><h3><span class="mini-icon">個</span>患者個人情報を扱わない</h3><p>患者氏名・住所・病名などを登録せず、施設単位の実績と売上管理に目的を限定します。</p></article>
+      </div>
+    </div>
+    <span class="footer-brand">訪看かんたん売上管理</span>
+  </section>
+
+  <section class="slide" data-page="09">
+    <p class="kicker">GETTING STARTED</p>
+    <h2>インストール後、すぐに始められます</h2>
+    <p class="lead">専門的なデータベース設定やコマンド操作は不要。初回起動の案内に沿って、施設名と単価を登録します。</p>
+
+    <div class="start-grid">
+      <div class="timeline">
+        <div class="timeline-item"><div class="timeline-no">1</div><div class="timeline-copy"><h3>Windowsへインストール</h3><p>セットアップファイルを実行し、デスクトップアプリとして導入します。</p></div></div>
+        <div class="timeline-item"><div class="timeline-no">2</div><div class="timeline-copy"><h3>初期設定（4ステップ）</h3><p>施設名と4区分の売上単価を入力。設定内容は後から変更できます。</p></div></div>
+        <div class="timeline-item"><div class="timeline-no">3</div><div class="timeline-copy"><h3>目標を登録して運用開始</h3><p>月間目標を設定し、施設ごとの人数入力から売上管理を始めます。</p></div></div>
+      </div>
+
+      <aside class="requirements">
+        <h3>利用環境と主な仕様</h3>
+        <div class="req-list">
+          <div class="req-item"><span class="check">✓</span><div><b>Windows 10 / 11（64bit）</b><small>Windows用インストーラーで提供</small></div></div>
+          <div class="req-item"><span class="check">✓</span><div><b>オフラインで主要機能が動作</b><small>インターネット接続は不要</small></div></div>
+          <div class="req-item"><span class="check">✓</span><div><b>ローカル端末へ保存</b><small>SQLiteデータベースを利用</small></div></div>
+          <div class="req-item"><span class="check">✓</span><div><b>日本語の操作画面</b><small>大きなボタンと分かりやすい案内</small></div></div>
+          <div class="req-item"><span class="check">✓</span><div><b>アップデート時もデータ保持</b><small>アプリ本体と入力データを分離</small></div></div>
+        </div>
+        <div class="version-box"><small>この資料の対象バージョン</small><strong>訪看かんたん売上管理 v0.1.1</strong></div>
+      </aside>
+    </div>
+    <p class="fineprint">配布形態やコード署名の有無によっては、初回インストール時にWindows SmartScreen等の警告が表示される場合があります。</p>
+    <span class="footer-brand">訪看かんたん売上管理</span>
+  </section>
+
+  <section class="slide closing" data-page="10">
+    <div>
+      <p class="kicker">SUMMARY</p>
+      <h2>売上管理を、<br><span class="highlight">もっと分かりやすく。</span></h2>
+      <p class="lead">訪看かんたん売上管理は、月次の人数入力から売上見込み・目標達成状況の確認までを、一つの分かりやすい画面にまとめます。</p>
+      <div class="closing-points">
+        <span class="tag">入力をシンプルに</span>
+        <span class="tag">計算を自動化</span>
+        <span class="tag">現在地を見える化</span>
+      </div>
+      <p class="fineprint">本資料の画面内数値・施設名は説明用サンプルです。実際の表示内容は登録データに応じて変わります。</p>
+    </div>
+
+    <div class="closing-card">
+      <h3>本アプリでできること</h3>
+      <ul>
+        <li>施設ごとの月次人数入力</li>
+        <li>売上見込み・達成率の自動集計</li>
+        <li>施設別・看護区分別の確認</li>
+        <li>月締め・過去月の確認</li>
+        <li>CSV出力・バックアップ・復元</li>
+      </ul>
+    </div>
+    <span class="footer-brand">訪看かんたん売上管理｜ご紹介資料</span>
+  </section>
+
+</body>
+</html>
