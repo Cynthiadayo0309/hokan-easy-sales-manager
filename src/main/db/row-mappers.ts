@@ -1,5 +1,7 @@
 import type {
   Facility,
+  MonthlyConfirmedSales,
+  MonthlyOverallSalesTarget,
   MonthlyPeriod,
   MonthClosingRecord,
   NursingCategory,
@@ -46,6 +48,26 @@ export interface MonthlyTargetRow {
   nursing_category_id: number;
   target_people_count: number;
   target_visit_count: number;
+  target_sales_yen: number;
+  created_by: number;
+  updated_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlyConfirmedSalesRow {
+  id: number;
+  target_month: string;
+  confirmed_sales_yen: number;
+  created_by: number;
+  updated_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlyOverallSalesTargetRow {
+  id: number;
+  target_month: string;
   target_sales_yen: number;
   created_by: number;
   updated_by: number;
@@ -145,6 +167,32 @@ export function mapMonthlyTarget(row: MonthlyTargetRow): MonthlyTarget {
     nursingCategoryId: row.nursing_category_id,
     targetPeopleCount: row.target_people_count,
     targetVisitCount: row.target_visit_count,
+    targetSalesYen: row.target_sales_yen,
+    createdBy: row.created_by,
+    updatedBy: row.updated_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+export function mapMonthlyConfirmedSales(row: MonthlyConfirmedSalesRow): MonthlyConfirmedSales {
+  return {
+    id: row.id,
+    targetMonth: row.target_month,
+    confirmedSalesYen: row.confirmed_sales_yen,
+    createdBy: row.created_by,
+    updatedBy: row.updated_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+export function mapMonthlyOverallSalesTarget(
+  row: MonthlyOverallSalesTargetRow
+): MonthlyOverallSalesTarget {
+  return {
+    id: row.id,
+    targetMonth: row.target_month,
     targetSalesYen: row.target_sales_yen,
     createdBy: row.created_by,
     updatedBy: row.updated_by,

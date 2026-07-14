@@ -78,8 +78,8 @@ onMounted(() => {
   <section class="view-stack">
     <div class="notice">
       <p class="eyebrow">施設別</p>
-      <h2>{{ monthLabel }}の施設別達成状況</h2>
-      <p>施設ごとの月間目標、累計、達成率、目標までの金額を確認します。</p>
+      <h2>{{ monthLabel }}の施設別概算</h2>
+      <p>施設ごとの月間目標と、月次人数から計算した概算売上・概算達成率を確認します。</p>
     </div>
 
     <p v-if="errorMessage" class="message error" aria-live="assertive">{{ errorMessage }}</p>
@@ -129,11 +129,11 @@ onMounted(() => {
           <strong>{{ formatMoneyCompact(selectedFacility.targetSalesYen) }}</strong>
         </section>
         <section class="summary-card">
-          <p class="card-label">月間累計</p>
+          <p class="card-label">概算売上</p>
           <strong>{{ formatMoneyCompact(selectedFacility.actualSalesYen) }}</strong>
         </section>
         <section class="summary-card">
-          <p class="card-label">達成率</p>
+          <p class="card-label">概算達成率</p>
           <strong>{{ formatAchievement(selectedFacility.achievement) }}</strong>
         </section>
         <section class="summary-card">
@@ -146,7 +146,7 @@ onMounted(() => {
         <div class="panel-heading">
           <div>
             <h2>施設一覧</h2>
-            <p class="card-label">施設ごとの達成状況を比較します</p>
+            <p class="card-label">施設ごとの概算達成状況を比較します</p>
           </div>
           <span class="status-text">{{ dashboard.facilityRows.length }}施設</span>
         </div>
@@ -154,8 +154,8 @@ onMounted(() => {
           <div class="dashboard-row dashboard-head">
             <span>施設</span>
             <span>目標</span>
-            <span>累計</span>
-            <span>達成率</span>
+            <span>概算売上</span>
+            <span>概算達成率</span>
           </div>
           <button
             v-for="row in dashboard.facilityRows"
@@ -188,7 +188,7 @@ onMounted(() => {
           <div class="dashboard-row dashboard-head">
             <span>看護区分</span>
             <span>目標</span>
-            <span>累計</span>
+            <span>概算売上</span>
             <span>人数</span>
           </div>
           <div

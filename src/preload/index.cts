@@ -1,5 +1,7 @@
 import type { HokanAppApi } from '../shared/types/app-api.js';
 
+// Electron preload is emitted as CommonJS so it can run before the renderer loads.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { contextBridge, ipcRenderer } = require('electron') as typeof import('electron');
 
 const IPC_CHANNELS = {
@@ -17,6 +19,10 @@ const IPC_CHANNELS = {
   targetsGetByMonth: 'targets:get-by-month',
   targetsSaveMonthly: 'targets:save-monthly',
   targetsCopyPreviousMonth: 'targets:copy-previous-month',
+  confirmedSalesGetByMonth: 'confirmed-sales:get-by-month',
+  confirmedSalesSave: 'confirmed-sales:save',
+  overallSalesTargetsGetByMonth: 'overall-sales-targets:get-by-month',
+  overallSalesTargetsSave: 'overall-sales-targets:save',
   periodsListByMonth: 'periods:list-by-month',
   entriesGet: 'entries:get',
   entriesSaveDraft: 'entries:save-draft',
@@ -57,6 +63,14 @@ const api: HokanAppApi = {
     getByMonth: (input) => ipcRenderer.invoke(IPC_CHANNELS.targetsGetByMonth, input),
     saveMonthly: (input) => ipcRenderer.invoke(IPC_CHANNELS.targetsSaveMonthly, input),
     copyPreviousMonth: (input) => ipcRenderer.invoke(IPC_CHANNELS.targetsCopyPreviousMonth, input)
+  },
+  confirmedSales: {
+    getByMonth: (input) => ipcRenderer.invoke(IPC_CHANNELS.confirmedSalesGetByMonth, input),
+    save: (input) => ipcRenderer.invoke(IPC_CHANNELS.confirmedSalesSave, input)
+  },
+  overallSalesTargets: {
+    getByMonth: (input) => ipcRenderer.invoke(IPC_CHANNELS.overallSalesTargetsGetByMonth, input),
+    save: (input) => ipcRenderer.invoke(IPC_CHANNELS.overallSalesTargetsSave, input)
   },
   periods: {
     listByMonth: (input) => ipcRenderer.invoke(IPC_CHANNELS.periodsListByMonth, input)

@@ -12,6 +12,8 @@ import type {
 import type { AppDatabase } from '../db/connection.js';
 import { FacilityRepository } from '../db/repositories/facility-repository.js';
 import { MonthClosingRepository } from '../db/repositories/month-closing-repository.js';
+import { MonthlyConfirmedSalesRepository } from '../db/repositories/monthly-confirmed-sales-repository.js';
+import { MonthlyOverallSalesTargetRepository } from '../db/repositories/monthly-overall-sales-target-repository.js';
 import { MonthlyPeriodRepository } from '../db/repositories/monthly-period-repository.js';
 import { MonthlyTargetRepository } from '../db/repositories/monthly-target-repository.js';
 import { NursingCategoryRepository } from '../db/repositories/nursing-category-repository.js';
@@ -27,6 +29,8 @@ export class MonthClosingService {
   private readonly nursingCategories: NursingCategoryRepository;
   private readonly entries: WeeklyEntryRepository;
   private readonly users: UserRepository;
+  private readonly confirmedSales: MonthlyConfirmedSalesRepository;
+  private readonly overallSalesTargets: MonthlyOverallSalesTargetRepository;
 
   constructor(private readonly db: AppDatabase) {
     this.closings = new MonthClosingRepository(db);
@@ -36,6 +40,8 @@ export class MonthClosingService {
     this.nursingCategories = new NursingCategoryRepository(db);
     this.entries = new WeeklyEntryRepository(db);
     this.users = new UserRepository(db);
+    this.confirmedSales = new MonthlyConfirmedSalesRepository(db);
+    this.overallSalesTargets = new MonthlyOverallSalesTargetRepository(db);
   }
 
   getStatus(
@@ -107,7 +113,23 @@ export class MonthClosingService {
 
     return [
       ...collectMissingEntryWarnings(facilities, periods, entryMap),
-      ...collectMissingTargetWarnings(facilities, categories, targetKeys)
+      ...collectMissingTargetWarnings(facilities, categories, targetKeys),
+      ...(this.overallSalesTargets.getByMonth(targetMonth)
+        ? []
+        : [
+            {
+              type: 'missing_overall_sales_target' as const,
+              message: '月全体の売上目標が未入力です。内訳目標の合計を使用します。'
+            }
+          ]),
+      ...(this.confirmedSales.getByMonth(targetMonth)
+        ? []
+        : [
+            {
+              type: 'missing_confirmed_sales' as const,
+              message: '月全体の確定売上が未入力です。'
+            }
+          ])
     ];
   }
 

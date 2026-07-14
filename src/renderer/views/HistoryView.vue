@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import type { MonthlyDashboard, MonthClosingStatus } from '@shared/types/app-api';
+import type {
+  AchievementResult,
+  MonthlyDashboard,
+  MonthClosingStatus
+} from '@shared/types/app-api';
 import { formatMoneyCompact } from '../utils/display';
 
 const selectedMonth = ref(new Date().toISOString().slice(0, 7));
@@ -23,6 +27,23 @@ const missingEntryWarnings = computed(
 const missingTargetWarnings = computed(
   () => closingStatus.value?.warnings.filter((warning) => warning.type === 'missing_target') ?? []
 );
+const missingConfirmedSalesWarnings = computed(
+  () =>
+    closingStatus.value?.warnings.filter((warning) => warning.type === 'missing_confirmed_sales') ??
+    []
+);
+const missingOverallSalesTargetWarnings = computed(
+  () =>
+    closingStatus.value?.warnings.filter(
+      (warning) => warning.type === 'missing_overall_sales_target'
+    ) ?? []
+);
+
+function formatAchievement(achievement: AchievementResult | null): string {
+  return achievement?.ratePercent === null || !achievement
+    ? '－'
+    : `${achievement.ratePercent.toFixed(1)}%`;
+}
 
 function setMessage(text: string): void {
   message.value = text;
@@ -63,10 +84,13 @@ async function closeMonth(): Promise<void> {
     return;
   }
 
-  const hasWarnings = missingTargetWarnings.value.length > 0;
+  const hasWarnings =
+    missingTargetWarnings.value.length > 0 ||
+    missingConfirmedSalesWarnings.value.length > 0 ||
+    missingOverallSalesTargetWarnings.value.length > 0;
   const confirmed = window.confirm(
     hasWarnings
-      ? '月間目標が未設定の項目があります。このまま月を締めますか？'
+      ? '目標または確定売上に未入力があります。このまま月を締めますか？'
       : `${monthLabel.value}を締めます。締め後は通常入力できません。`
   );
 
@@ -83,7 +107,7 @@ async function closeMonth(): Promise<void> {
     });
     setMessage(`${monthLabel.value}を締めました。`);
   } catch {
-    setError('月を締められませんでした。未入力と目標設定を確認してください。');
+    setError('月を締められませんでした。月次入力、目標、確定売上を確認してください。');
   } finally {
     saving.value = false;
   }
@@ -147,11 +171,32 @@ onMounted(() => {
     <template v-else-if="dashboard && closingStatus">
       <div class="summary-grid">
         <section class="summary-card">
-          <p class="card-label">月間累計</p>
+          <p class="card-label">月間目標</p>
+          <strong>{{ formatMoneyCompact(dashboard.summary.targetSalesYen) }}</strong>
+          <small v-if="dashboard.targetSalesSource === 'detailed_sum'" class="status-text">
+            内訳目標の合計を使用中
+          </small>
+        </section>
+        <section class="summary-card">
+          <p class="card-label">概算売上</p>
           <strong>{{ formatMoneyCompact(dashboard.summary.actualSalesYen) }}</strong>
         </section>
         <section class="summary-card">
-          <p class="card-label">前月との差</p>
+          <p class="card-label">確定売上</p>
+          <strong>
+            {{
+              dashboard.confirmedSales
+                ? formatMoneyCompact(dashboard.confirmedSales.confirmedSalesYen)
+                : '未入力'
+            }}
+          </strong>
+        </section>
+        <section class="summary-card">
+          <p class="card-label">確定達成率</p>
+          <strong>{{ formatAchievement(dashboard.confirmedAchievement) }}</strong>
+        </section>
+        <section class="summary-card">
+          <p class="card-label">概算の前月差</p>
           <strong>{{ formatMoneyCompact(closingStatus.comparison.differenceYen) }}</strong>
         </section>
         <section class="summary-card">
@@ -166,7 +211,9 @@ onMounted(() => {
             <h2>月締め</h2>
             <p class="card-label">
               未入力 {{ missingEntryWarnings.length }}件 / 目標未設定
-              {{ missingTargetWarnings.length }}件
+              {{ missingTargetWarnings.length }}件 / 月全体目標未入力
+              {{ missingOverallSalesTargetWarnings.length }}件 / 確定売上未入力
+              {{ missingConfirmedSalesWarnings.length }}件
             </p>
           </div>
           <button
@@ -192,8 +239,15 @@ onMounted(() => {
         <p v-if="missingEntryWarnings.length > 0" class="message error">
           月次入力が未完了の施設があります。すべて入力完了にすると月締めできます。
         </p>
-        <p v-else-if="missingTargetWarnings.length > 0" class="message">
-          月間目標が未設定の項目があります。確認してから月締めしてください。
+        <p
+          v-else-if="
+            missingTargetWarnings.length > 0 ||
+            missingOverallSalesTargetWarnings.length > 0 ||
+            missingConfirmedSalesWarnings.length > 0
+          "
+          class="message"
+        >
+          目標または確定売上に未入力があります。確認してから月締めしてください。
         </p>
         <p v-else class="message success">月締めできます。</p>
       </section>
@@ -208,8 +262,8 @@ onMounted(() => {
             確認が必要な項目はありません。
           </p>
           <p
-            v-for="warning in closingStatus.warnings.slice(0, 20)"
-            :key="`${warning.type}-${warning.facilityId}-${warning.periodIndex}-${warning.nursingCategoryId}`"
+            v-for="(warning, index) in closingStatus.warnings.slice(0, 20)"
+            :key="`${warning.type}-${warning.facilityId}-${warning.periodIndex}-${warning.nursingCategoryId}-${index}`"
             class="message"
           >
             {{ warning.message }}

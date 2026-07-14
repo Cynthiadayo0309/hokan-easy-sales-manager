@@ -4,9 +4,12 @@ import { computed, onMounted, ref } from 'vue';
 import { useSaveFeedback } from '@/composables/useSaveFeedback';
 import { calculateEntryDetail, calculateEntrySummary } from '@shared/calculations/entries';
 import { weeklyEntryStatusLabel } from '@shared/calculations/entry-status';
+import { yenToThousandYenLabel } from '@shared/calculations/dashboard';
 import type {
   Facility,
+  MonthlyDashboard,
   MonthlyPeriod,
+  MonthClosingStatus,
   NursingCategory,
   SaveWeeklyEntryDetailInput,
   WeeklyEntryDetail,
@@ -23,10 +26,16 @@ const periods = ref<MonthlyPeriod[]>([]);
 const facilities = ref<Facility[]>([]);
 const nursingCategories = ref<NursingCategory[]>([]);
 const statusMatrix = ref<WeeklyEntryStatusMatrix | null>(null);
+const monthlyDashboard = ref<MonthlyDashboard | null>(null);
+const closingStatus = ref<MonthClosingStatus | null>(null);
+const overallSalesTargetInput = ref('');
+const confirmedSalesInput = ref('');
 const currentForm = ref<WeeklyEntryForm | null>(null);
 const formDetails = ref<SaveWeeklyEntryDetailInput[]>([]);
 const loading = ref(true);
 const saving = ref(false);
+const savingConfirmedSales = ref(false);
+const savingOverallSalesTarget = ref(false);
 const message = ref<string | null>(null);
 const errorMessage = ref<string | null>(null);
 const { clearSaveFeedback, saveFeedback, showSaveFeedback } = useSaveFeedback();
@@ -43,6 +52,7 @@ const currentStatus = computed<WeeklyEntryStatus>(() => currentForm.value?.statu
 const completedFacilityCount = computed(
   () => statusMatrix.value?.cells.filter((cell) => cell.status === 'completed').length ?? 0
 );
+const monthClosed = computed(() => closingStatus.value?.status === 'closed');
 const calculatedSummary = computed(() =>
   calculateEntrySummary(
     nursingCategories.value.map((category) => {
@@ -169,6 +179,20 @@ async function loadMonth(): Promise<void> {
     const setupStatus = await window.hokanApp.setup.getStatus();
     nursingCategories.value = setupStatus.nursingCategories;
     await refreshStatusMatrix();
+    const [dashboardResult, closingResult, overallSalesTarget, confirmedSales] = await Promise.all([
+      window.hokanApp.dashboard.getMonthly({ targetMonth: targetMonth.value }),
+      window.hokanApp.closings.getStatus({ targetMonth: targetMonth.value }),
+      window.hokanApp.overallSalesTargets.getByMonth({ targetMonth: targetMonth.value }),
+      window.hokanApp.confirmedSales.getByMonth({ targetMonth: targetMonth.value })
+    ]);
+    monthlyDashboard.value = dashboardResult;
+    closingStatus.value = closingResult;
+    overallSalesTargetInput.value = overallSalesTarget
+      ? String(overallSalesTarget.targetSalesYen / 1000)
+      : '';
+    confirmedSalesInput.value = confirmedSales
+      ? String(confirmedSales.confirmedSalesYen / 1000)
+      : '';
 
     selectedPeriodId.value = periods.value[0]?.id ?? null;
 
@@ -181,6 +205,68 @@ async function loadMonth(): Promise<void> {
     setError('月次入力の準備ができませんでした。初期設定と単価設定を確認してください。');
   } finally {
     loading.value = false;
+  }
+}
+
+async function saveOverallSalesTarget(): Promise<void> {
+  if (savingOverallSalesTarget.value || monthClosed.value) {
+    return;
+  }
+
+  savingOverallSalesTarget.value = true;
+  clearSaveFeedback();
+
+  try {
+    const inputValue = overallSalesTargetInput.value.trim();
+    const saved = await window.hokanApp.overallSalesTargets.save({
+      targetMonth: targetMonth.value,
+      amountThousandYen: inputValue === '' ? null : inputValue
+    });
+    overallSalesTargetInput.value = saved ? String(saved.targetSalesYen / 1000) : '';
+    const [dashboardResult, closingResult] = await Promise.all([
+      window.hokanApp.dashboard.getMonthly({ targetMonth: targetMonth.value }),
+      window.hokanApp.closings.getStatus({ targetMonth: targetMonth.value })
+    ]);
+    monthlyDashboard.value = dashboardResult;
+    closingStatus.value = closingResult;
+    showSaveFeedback('月全体の売上目標');
+    setMessage(saved ? '月全体の売上目標を保存しました。' : '売上目標を未入力に戻しました。');
+  } catch {
+    clearSaveFeedback();
+    setError('売上目標を保存できませんでした。0以上の金額を千円単位で入力してください。');
+  } finally {
+    savingOverallSalesTarget.value = false;
+  }
+}
+
+async function saveConfirmedSales(): Promise<void> {
+  if (savingConfirmedSales.value || monthClosed.value) {
+    return;
+  }
+
+  savingConfirmedSales.value = true;
+  clearSaveFeedback();
+
+  try {
+    const inputValue = confirmedSalesInput.value.trim();
+    const saved = await window.hokanApp.confirmedSales.save({
+      targetMonth: targetMonth.value,
+      amountThousandYen: inputValue === '' ? null : inputValue
+    });
+    confirmedSalesInput.value = saved ? String(saved.confirmedSalesYen / 1000) : '';
+    const [dashboardResult, closingResult] = await Promise.all([
+      window.hokanApp.dashboard.getMonthly({ targetMonth: targetMonth.value }),
+      window.hokanApp.closings.getStatus({ targetMonth: targetMonth.value })
+    ]);
+    monthlyDashboard.value = dashboardResult;
+    closingStatus.value = closingResult;
+    showSaveFeedback('月全体の確定売上');
+    setMessage(saved ? '月全体の確定売上を保存しました。' : '確定売上を未入力に戻しました。');
+  } catch {
+    clearSaveFeedback();
+    setError('確定売上を保存できませんでした。0以上の金額を千円単位で入力してください。');
+  } finally {
+    savingConfirmedSales.value = false;
   }
 }
 
@@ -325,7 +411,10 @@ onMounted(() => {
       {{ saveFeedback }}
     </p>
 
-    <section class="panel" :aria-busy="loading || saving">
+    <section
+      class="panel"
+      :aria-busy="loading || saving || savingConfirmedSales || savingOverallSalesTarget"
+    >
       <div class="panel-heading">
         <div>
           <h2>{{ monthLabel }}</h2>
@@ -342,6 +431,68 @@ onMounted(() => {
       <p v-if="loading" class="message">月次入力を読み込んでいます。</p>
 
       <template v-else>
+        <p v-if="monthClosed" class="message">
+          この月は締め済みです。売上目標、確定売上、月次人数を変更するには「過去月」から再開してください。
+        </p>
+
+        <section class="confirmed-sales-panel" aria-labelledby="confirmed-sales-heading">
+          <div>
+            <p class="card-label">月全体の概算売上</p>
+            <strong id="confirmed-sales-heading">
+              {{ yenToThousandYenLabel(monthlyDashboard?.summary.actualSalesYen ?? 0) }}
+            </strong>
+            <small>施設別・看護区分別の月次人数と単価から計算しています。</small>
+          </div>
+          <label class="confirmed-sales-field">
+            <span>月全体の売上目標（千円）</span>
+            <div class="confirmed-sales-input-row">
+              <input
+                v-model="overallSalesTargetInput"
+                :disabled="monthClosed || savingOverallSalesTarget"
+                inputmode="decimal"
+                placeholder="例: 5000"
+                type="text"
+              />
+              <span>千円</span>
+              <button
+                class="primary-button"
+                :disabled="monthClosed || savingOverallSalesTarget"
+                type="button"
+                @click="saveOverallSalesTarget"
+              >
+                {{ savingOverallSalesTarget ? '保存中' : '売上目標を保存' }}
+              </button>
+            </div>
+            <small v-if="monthlyDashboard?.targetSalesSource === 'detailed_sum'">
+              未入力のため、施設・区分別目標の合計
+              {{ yenToThousandYenLabel(monthlyDashboard.summary.targetSalesYen) }}を使用中です。
+            </small>
+            <small v-else>全施設・全看護区分を合算した目標金額です。</small>
+          </label>
+          <label class="confirmed-sales-field">
+            <span>月全体の確定売上（千円）</span>
+            <div class="confirmed-sales-input-row">
+              <input
+                v-model="confirmedSalesInput"
+                :disabled="monthClosed || savingConfirmedSales"
+                inputmode="decimal"
+                placeholder="例: 1250.5"
+                type="text"
+              />
+              <span>千円</span>
+              <button
+                class="primary-button"
+                :disabled="monthClosed || savingConfirmedSales"
+                type="button"
+                @click="saveConfirmedSales"
+              >
+                {{ savingConfirmedSales ? '保存中' : '確定売上を保存' }}
+              </button>
+            </div>
+            <small>全施設・全看護区分を合算した金額です。空欄で保存すると未入力に戻ります。</small>
+          </label>
+        </section>
+
         <div class="facility-tabs" aria-label="施設選択">
           <button
             v-for="facility in facilities"
@@ -396,6 +547,7 @@ onMounted(() => {
             <strong>{{ category.name }}</strong>
             <input
               :value="inputValue(getInputDetail(category.id).peopleCount ?? null)"
+              :disabled="monthClosed"
               inputmode="numeric"
               max="99999"
               min="0"
@@ -407,21 +559,36 @@ onMounted(() => {
         </div>
 
         <div class="entry-actions">
-          <button class="secondary-button" :disabled="saving" type="button" @click="setAllZero">
+          <button
+            class="secondary-button"
+            :disabled="saving || monthClosed"
+            type="button"
+            @click="setAllZero"
+          >
             すべて0人
           </button>
           <button
             class="secondary-button"
-            :disabled="saving"
+            :disabled="saving || monthClosed"
             type="button"
             @click="saveDraft(false)"
           >
             {{ saving ? '保存中' : '一時保存' }}
           </button>
-          <button class="primary-button" :disabled="saving" type="button" @click="saveDraft(true)">
+          <button
+            class="primary-button"
+            :disabled="saving || monthClosed"
+            type="button"
+            @click="saveDraft(true)"
+          >
             {{ saving ? '保存中' : '保存して次の施設へ' }}
           </button>
-          <button class="primary-button" :disabled="saving" type="button" @click="completeEntry">
+          <button
+            class="primary-button"
+            :disabled="saving || monthClosed"
+            type="button"
+            @click="completeEntry"
+          >
             {{ saving ? '完了処理中' : '入力完了' }}
           </button>
         </div>

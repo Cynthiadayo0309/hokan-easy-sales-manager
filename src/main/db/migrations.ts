@@ -372,6 +372,36 @@ export const migrations: Migration[] = [
       DROP TABLE monthly_kept_periods;
       DROP TABLE monthly_target_months;
     `
+  },
+  {
+    version: 8,
+    name: 'monthly_confirmed_sales',
+    sql: `
+      CREATE TABLE IF NOT EXISTS monthly_confirmed_sales (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_month TEXT NOT NULL UNIQUE,
+        confirmed_sales_yen INTEGER NOT NULL CHECK (confirmed_sales_yen >= 0),
+        created_by INTEGER NOT NULL REFERENCES users(id),
+        updated_by INTEGER NOT NULL REFERENCES users(id),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `
+  },
+  {
+    version: 9,
+    name: 'monthly_overall_sales_targets',
+    sql: `
+      CREATE TABLE IF NOT EXISTS monthly_overall_sales_targets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_month TEXT NOT NULL UNIQUE,
+        target_sales_yen INTEGER NOT NULL CHECK (target_sales_yen >= 0),
+        created_by INTEGER NOT NULL REFERENCES users(id),
+        updated_by INTEGER NOT NULL REFERENCES users(id),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `
   }
 ];
 

@@ -17,6 +17,8 @@ import type {
 } from '../../shared/types/app-api.js';
 import type { AppDatabase } from '../db/connection.js';
 import { FacilityRepository } from '../db/repositories/facility-repository.js';
+import { MonthlyConfirmedSalesRepository } from '../db/repositories/monthly-confirmed-sales-repository.js';
+import { MonthlyOverallSalesTargetRepository } from '../db/repositories/monthly-overall-sales-target-repository.js';
 import { MonthlyPeriodRepository } from '../db/repositories/monthly-period-repository.js';
 import { MonthlyTargetRepository } from '../db/repositories/monthly-target-repository.js';
 import { NursingCategoryRepository } from '../db/repositories/nursing-category-repository.js';
@@ -38,6 +40,8 @@ export class DashboardService {
   private readonly periods: MonthlyPeriodRepository;
   private readonly targets: MonthlyTargetRepository;
   private readonly entries: WeeklyEntryRepository;
+  private readonly confirmedSales: MonthlyConfirmedSalesRepository;
+  private readonly overallSalesTargets: MonthlyOverallSalesTargetRepository;
 
   constructor(db: AppDatabase) {
     this.facilities = new FacilityRepository(db);
@@ -45,6 +49,8 @@ export class DashboardService {
     this.periods = new MonthlyPeriodRepository(db);
     this.targets = new MonthlyTargetRepository(db);
     this.entries = new WeeklyEntryRepository(db);
+    this.confirmedSales = new MonthlyConfirmedSalesRepository(db);
+    this.overallSalesTargets = new MonthlyOverallSalesTargetRepository(db);
   }
 
   getMonthly(input: { targetMonth: string }): MonthlyDashboard {
@@ -66,6 +72,8 @@ export class DashboardService {
       .filter(
         (target) => facilityIds.has(target.facilityId) && categoryIds.has(target.nursingCategoryId)
       );
+    const confirmedSales = this.confirmedSales.getByMonth(targetMonth);
+    const overallSalesTarget = this.overallSalesTargets.getByMonth(targetMonth);
     const daysInMonth = getDaysInMonth(targetMonth);
     const completedDayCount = this.calculateCompletedDayCount(periods, facilities, entries);
     const summaryAccumulator = createAccumulator();
@@ -98,6 +106,10 @@ export class DashboardService {
       }
     });
 
+    const targetSalesSource = overallSalesTarget ? 'overall' : 'detailed_sum';
+    summaryAccumulator.targetSalesYen =
+      overallSalesTarget?.targetSalesYen ?? summaryAccumulator.targetSalesYen;
+
     entries.forEach((entry) => {
       const facilityAccumulator = facilityAccumulators.get(entry.facilityId);
       const periodAccumulator = periodAccumulators.get(entry.monthlyPeriodId);
@@ -128,6 +140,12 @@ export class DashboardService {
     return {
       targetMonth,
       summary: toSummary(summaryAccumulator, completedDayCount, daysInMonth),
+      overallSalesTarget,
+      targetSalesSource,
+      confirmedSales,
+      confirmedAchievement: confirmedSales
+        ? calculateAchievement(summaryAccumulator.targetSalesYen, confirmedSales.confirmedSalesYen)
+        : null,
       facilityRows: facilities.map((facility) =>
         toFacilityRow(
           facility,

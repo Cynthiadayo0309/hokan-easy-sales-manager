@@ -315,13 +315,13 @@ async function saveTargets(): Promise<void> {
         })
       )
     });
-    showSaveFeedback('月間目標');
-    setMessage('月間目標を保存しました。');
+    showSaveFeedback('施設・区分別目標');
+    setMessage('施設・区分別目標を保存しました。');
     await loadTargets();
   } catch {
     clearSaveFeedback();
     setError(
-      '月間目標を保存できませんでした。人数は0以上の整数、売上は千円単位で入力してください。'
+      '施設・区分別目標を保存できませんでした。人数は0以上の整数、売上は千円単位で入力してください。'
     );
   } finally {
     saving.value = false;
@@ -334,7 +334,7 @@ async function copyPreviousMonthTargets(): Promise<void> {
   }
 
   const confirmed = window.confirm(
-    '前月の目標をこの月へコピーします。現在のこの月の目標は上書きされます。'
+    '前月の施設・区分別目標をこの月へコピーします。現在の内訳目標は上書きされます。'
   );
   if (!confirmed) {
     return;
@@ -347,9 +347,9 @@ async function copyPreviousMonthTargets(): Promise<void> {
       targetMonth: targetMonth.value
     });
     applyTargetInputs(targets);
-    setMessage('前月の目標をコピーしました。内容を確認してください。');
+    setMessage('前月の施設・区分別目標をコピーしました。内容を確認してください。');
   } catch {
-    setError('前月の目標をコピーできませんでした。前月の目標が登録されているか確認してください。');
+    setError('前月の施設・区分別目標をコピーできませんでした。前月の内訳目標を確認してください。');
   } finally {
     saving.value = false;
   }
@@ -370,7 +370,9 @@ onMounted(() => {
     <div class="notice">
       <p class="eyebrow">目標・単価設定</p>
       <h2>設定を変更する</h2>
-      <p>施設名、区分ごとの売上単価、月間目標をここで設定します。金額の単位は千円です。</p>
+      <p>
+        施設名、区分ごとの売上単価、施設・区分別目標を設定します。月全体の売上目標は「月次入力」で設定します。
+      </p>
     </div>
 
     <p v-if="message" class="message success" aria-live="polite">{{ message }}</p>
@@ -395,7 +397,7 @@ onMounted(() => {
         type="button"
         @click="activeTab = 'targets'"
       >
-        月間目標
+        施設・区分別目標
       </button>
     </div>
 
@@ -496,7 +498,7 @@ onMounted(() => {
     <section v-if="activeTab === 'targets'" class="panel" :aria-busy="loading || saving">
       <div class="panel-heading">
         <div>
-          <h2>月間目標</h2>
+          <h2>施設・区分別目標</h2>
           <p class="card-label">売上の単位: 千円</p>
         </div>
         <label class="month-field">
@@ -512,11 +514,11 @@ onMounted(() => {
           type="button"
           @click="copyPreviousMonthTargets"
         >
-          {{ saving ? 'コピー中' : '前月の目標をコピー' }}
+          {{ saving ? 'コピー中' : '前月の内訳目標をコピー' }}
         </button>
       </div>
 
-      <div class="target-table" role="table" aria-label="月間目標">
+      <div class="target-table" role="table" aria-label="施設・区分別目標">
         <div class="target-row target-head" role="row">
           <span>施設</span>
           <span>区分</span>
@@ -562,7 +564,7 @@ onMounted(() => {
         type="button"
         @click="saveTargets"
       >
-        {{ saving ? '保存中' : '月間目標を保存' }}
+        {{ saving ? '保存中' : '施設・区分別目標を保存' }}
       </button>
     </section>
   </section>

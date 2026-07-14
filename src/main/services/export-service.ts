@@ -80,16 +80,26 @@ export class ExportService {
   buildMonthlyCsv(targetMonth: string): { content: string; rowCount: number } {
     const dashboard = this.dashboard.getMonthly({ targetMonth });
     const rows: string[][] = [
-      ['種別', '名称', '目標千円', '累計千円', '達成率', '差額千円'],
-      ['全体', '全体', ...summaryCells(dashboard.summary)]
+      [
+        '種別',
+        '名称',
+        '目標千円',
+        '概算売上千円',
+        '確定売上千円',
+        '概算達成率',
+        '確定達成率',
+        '概算差額千円',
+        '確定差額千円'
+      ],
+      ['全体', '全体', ...overallSummaryCells(dashboard)]
     ];
 
     dashboard.facilityRows.forEach((row) => {
-      rows.push(['施設別', row.facilityName, ...summaryCells(row)]);
+      rows.push(['施設別', row.facilityName, ...estimatedSummaryCells(row)]);
     });
 
     dashboard.nursingCategoryRows.forEach((row) => {
-      rows.push(['看護区分別', row.nursingCategoryName, ...summaryCells(row)]);
+      rows.push(['看護区分別', row.nursingCategoryName, ...estimatedSummaryCells(row)]);
     });
 
     return { content: bom + toCsv(rows), rowCount: rows.length - 1 };
@@ -124,15 +134,35 @@ async function writeCsvWithDialog(
   };
 }
 
-function summaryCells(summary: MonthlyDashboard['summary']): string[] {
+function overallSummaryCells(dashboard: MonthlyDashboard): string[] {
+  const confirmedSalesYen = dashboard.confirmedSales?.confirmedSalesYen;
+  const confirmedAchievement = dashboard.confirmedAchievement;
+
+  return [
+    yenToThousandYenLabel(dashboard.summary.targetSalesYen),
+    yenToThousandYenLabel(dashboard.summary.actualSalesYen),
+    confirmedSalesYen === undefined ? '' : yenToThousandYenLabel(confirmedSalesYen),
+    achievementLabel(dashboard.summary.achievement.ratePercent),
+    confirmedAchievement ? achievementLabel(confirmedAchievement.ratePercent) : '',
+    yenToThousandYenLabel(Math.abs(dashboard.summary.achievement.remainingYen)),
+    confirmedAchievement ? yenToThousandYenLabel(Math.abs(confirmedAchievement.remainingYen)) : ''
+  ];
+}
+
+function estimatedSummaryCells(summary: MonthlyDashboard['summary']): string[] {
   return [
     yenToThousandYenLabel(summary.targetSalesYen),
     yenToThousandYenLabel(summary.actualSalesYen),
-    summary.achievement.ratePercent === null
-      ? '－'
-      : `${summary.achievement.ratePercent.toFixed(1)}%`,
-    yenToThousandYenLabel(Math.abs(summary.achievement.remainingYen))
+    '',
+    achievementLabel(summary.achievement.ratePercent),
+    '',
+    yenToThousandYenLabel(Math.abs(summary.achievement.remainingYen)),
+    ''
   ];
+}
+
+function achievementLabel(ratePercent: number | null): string {
+  return ratePercent === null ? '－' : `${ratePercent.toFixed(1)}%`;
 }
 
 function toCsv(rows: string[][]): string {

@@ -7,10 +7,12 @@ import { DatabaseManager, initializeDatabase, openDatabase } from '../../src/mai
 import { migrations, runMigrations } from '../../src/main/db/migrations';
 import { seedInitialData } from '../../src/main/db/seeds/initial-data';
 import { BackupService, validateBackupDatabase } from '../../src/main/services/backup-service';
+import { ConfirmedSalesService } from '../../src/main/services/confirmed-sales-service';
 import { DashboardService } from '../../src/main/services/dashboard-service';
 import { EntryService } from '../../src/main/services/entry-service';
 import { ExportService } from '../../src/main/services/export-service';
 import { MonthClosingService } from '../../src/main/services/month-closing-service';
+import { OverallSalesTargetService } from '../../src/main/services/overall-sales-target-service';
 import { PeriodService } from '../../src/main/services/period-service';
 import { RateService, TargetService } from '../../src/main/services/rate-target-service';
 import { FacilityService, SetupService } from '../../src/main/services/setup-service';
@@ -113,6 +115,20 @@ describe('database initialization', () => {
     expect(
       db
         .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'monthly_confirmed_sales'"
+        )
+        .get()
+    ).toMatchObject({ count: 1 });
+    expect(
+      db
+        .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'monthly_overall_sales_targets'"
+        )
+        .get()
+    ).toMatchObject({ count: 1 });
+    expect(
+      db
+        .prepare(
           "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'monthly_periods'"
         )
         .get()
@@ -160,7 +176,7 @@ describe('database initialization', () => {
     seedInitialData(db);
 
     expect(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get()).toMatchObject({
-      count: 7
+      count: 9
     });
     expect(db.prepare('SELECT COUNT(*) AS count FROM facilities').get()).toMatchObject({
       count: 5
@@ -920,6 +936,8 @@ describe('monthly dashboard service', () => {
     expect(dashboard.summary.targetSalesYen).toBe(0);
     expect(dashboard.summary.achievement.ratePercent).toBeNull();
     expect(dashboard.summary.forecast.forecastSalesYen).toBeNull();
+    expect(dashboard.confirmedSales).toBeNull();
+    expect(dashboard.confirmedAchievement).toBeNull();
     expect(dashboard.facilityRows).toHaveLength(5);
     expect(dashboard.nursingCategoryRows).toHaveLength(4);
     expect(dashboard.periodRows).toHaveLength(1);
@@ -1004,6 +1022,7 @@ describe('monthly dashboard service', () => {
     const periodService = new PeriodService(db);
     const entryService = new EntryService(db);
     const dashboardService = new DashboardService(db);
+    const confirmedSalesService = new ConfirmedSalesService(db);
     const [period] = periodService.listByMonth({ targetMonth: '2026-07-01' });
     const [facility] = status.facilities;
     const [firstCategory] = status.nursingCategories;
@@ -1018,6 +1037,10 @@ describe('monthly dashboard service', () => {
         three: 0
       })
     });
+    confirmedSalesService.save({
+      targetMonth: '2026-07-01',
+      amountThousandYen: '8.5'
+    });
 
     const dashboard = dashboardService.getMonthly({ targetMonth: '2026-07-01' });
 
@@ -1028,6 +1051,125 @@ describe('monthly dashboard service', () => {
       status: 'not_set',
       remainingYen: -8_500
     });
+    expect(dashboard.confirmedAchievement).toMatchObject({
+      ratePercent: null,
+      status: 'not_set',
+      remainingYen: -8_500
+    });
+
+    db.close();
+  });
+
+  it('calculates confirmed achievement without changing estimated breakdowns', () => {
+    const db = createTestDatabase();
+    const setupStatus = new SetupService(db).getStatus();
+    const rateService = new RateService(db);
+    const targetService = new TargetService(db);
+    const confirmedSalesService = new ConfirmedSalesService(db);
+    const overallSalesTargetService = new OverallSalesTargetService(db);
+    const periodService = new PeriodService(db);
+    const entryService = new EntryService(db);
+    const dashboardService = new DashboardService(db);
+    const [period] = periodService.listByMonth({ targetMonth: '2026-07-01' });
+    const [facility] = setupStatus.facilities;
+    const [category] = setupStatus.nursingCategories;
+
+    rateService.save({
+      validFrom: '2026-07-01',
+      rates: setupStatus.nursingCategories.map((nursingCategory) => ({
+        nursingCategoryId: nursingCategory.id,
+        amountThousandYen: '8'
+      }))
+    });
+    targetService.saveMonthly({
+      targetMonth: '2026-07-01',
+      targets: [
+        {
+          facilityId: facility.id,
+          nursingCategoryId: category.id,
+          targetPeopleCount: 100,
+          targetVisitCount: 100,
+          targetSalesThousandYen: '1000'
+        }
+      ]
+    });
+    entryService.complete({
+      targetMonth: '2026-07-01',
+      monthlyPeriodId: period.id,
+      facilityId: facility.id,
+      details: buildPeopleCountDetails(setupStatus.nursingCategories, category.id, 100)
+    });
+    confirmedSalesService.save({
+      targetMonth: '2026-07-01',
+      amountThousandYen: '750'
+    });
+
+    const fallbackDashboard = dashboardService.getMonthly({ targetMonth: '2026-07-01' });
+    overallSalesTargetService.save({
+      targetMonth: '2026-07-01',
+      amountThousandYen: '900'
+    });
+    const dashboard = dashboardService.getMonthly({ targetMonth: '2026-07-01' });
+
+    expect(fallbackDashboard.targetSalesSource).toBe('detailed_sum');
+    expect(fallbackDashboard.summary.targetSalesYen).toBe(1_000_000);
+    expect(fallbackDashboard.confirmedAchievement?.ratePercent).toBe(75);
+    expect(dashboard.targetSalesSource).toBe('overall');
+    expect(dashboard.overallSalesTarget?.targetSalesYen).toBe(900_000);
+    expect(dashboard.summary.targetSalesYen).toBe(900_000);
+    expect(dashboard.summary.actualSalesYen).toBe(800_000);
+    expect(dashboard.confirmedSales?.confirmedSalesYen).toBe(750_000);
+    expect(dashboard.confirmedAchievement).toMatchObject({
+      ratePercent: 83.3,
+      remainingYen: 150_000,
+      status: 'remaining'
+    });
+    expect(dashboard.facilityRows[0].targetSalesYen).toBe(1_000_000);
+    expect(dashboard.facilityRows[0].actualSalesYen).toBe(800_000);
+    expect(dashboard.nursingCategoryRows[0].actualSalesYen).toBe(800_000);
+
+    db.close();
+  });
+});
+
+describe('confirmed sales service', () => {
+  it('saves thousand-yen values, preserves explicit zero, and clears to missing', () => {
+    const db = createTestDatabase();
+    const service = new ConfirmedSalesService(db);
+
+    expect(
+      service.save({ targetMonth: '2026-07-01', amountThousandYen: '8.5' })?.confirmedSalesYen
+    ).toBe(8_500);
+    expect(
+      service.save({ targetMonth: '2026-07-01', amountThousandYen: 0 })?.confirmedSalesYen
+    ).toBe(0);
+    expect(service.save({ targetMonth: '2026-07-01', amountThousandYen: null })).toBeNull();
+    expect(service.getByMonth({ targetMonth: '2026-07-01' })).toBeNull();
+    expect(() => service.save({ targetMonth: '2026-07-01', amountThousandYen: '8.55' })).toThrow(
+      'AMOUNT_INVALID'
+    );
+
+    db.close();
+  });
+});
+
+describe('overall sales target service', () => {
+  it('saves thousand-yen values, preserves explicit zero, and clears to fallback', () => {
+    const db = createTestDatabase();
+    const service = new OverallSalesTargetService(db);
+
+    expect(
+      service.save({ targetMonth: '2026-07-01', amountThousandYen: '8.5' })?.targetSalesYen
+    ).toBe(8_500);
+    expect(service.save({ targetMonth: '2026-07-01', amountThousandYen: 0 })?.targetSalesYen).toBe(
+      0
+    );
+    expect(new DashboardService(db).getMonthly({ targetMonth: '2026-07-01' })).toMatchObject({
+      targetSalesSource: 'overall',
+      summary: { targetSalesYen: 0 }
+    });
+    expect(service.save({ targetMonth: '2026-07-01', amountThousandYen: null })).toBeNull();
+    expect(service.getByMonth({ targetMonth: '2026-07-01' })).toBeNull();
 
     db.close();
   });
@@ -1040,6 +1182,8 @@ describe('month closing service', () => {
     const periodService = new PeriodService(db);
     const entryService = new EntryService(db);
     const targetService = new TargetService(db);
+    const confirmedSalesService = new ConfirmedSalesService(db);
+    const overallSalesTargetService = new OverallSalesTargetService(db);
     const closingService = new MonthClosingService(db);
     const periods = periodService.listByMonth({ targetMonth: '2026-07-01' });
     const [facility] = status.facilities;
@@ -1064,6 +1208,14 @@ describe('month closing service', () => {
       status.facilities,
       status.nursingCategories
     );
+    confirmedSalesService.save({
+      targetMonth: '2026-07-01',
+      amountThousandYen: '100'
+    });
+    overallSalesTargetService.save({
+      targetMonth: '2026-07-01',
+      amountThousandYen: '200'
+    });
 
     const closed = closingService.closeMonth({
       targetMonth: '2026-07-01',
@@ -1087,6 +1239,18 @@ describe('month closing service', () => {
       targetService.saveMonthly({
         targetMonth: '2026-07-01',
         targets: []
+      })
+    ).toThrow('MONTH_CLOSED');
+    expect(() =>
+      confirmedSalesService.save({
+        targetMonth: '2026-07-01',
+        amountThousandYen: '200'
+      })
+    ).toThrow('MONTH_CLOSED');
+    expect(() =>
+      overallSalesTargetService.save({
+        targetMonth: '2026-07-01',
+        amountThousandYen: '300'
       })
     ).toThrow('MONTH_CLOSED');
 
@@ -1118,6 +1282,12 @@ describe('month closing service', () => {
     expect(status.canClose).toBe(false);
     expect(status.warnings.some((warning) => warning.type === 'missing_entry')).toBe(true);
     expect(status.warnings.some((warning) => warning.type === 'missing_target')).toBe(true);
+    expect(status.warnings.some((warning) => warning.type === 'missing_overall_sales_target')).toBe(
+      true
+    );
+    expect(status.warnings.some((warning) => warning.type === 'missing_confirmed_sales')).toBe(
+      true
+    );
     expect(() =>
       closingService.closeMonth({ targetMonth: '2026-07-01', acknowledgeWarnings: true })
     ).toThrow('MONTH_CLOSING_INCOMPLETE');
@@ -1217,6 +1387,7 @@ describe('export service', () => {
     const db = createTestDatabase();
     const status = saveCommonRatesForEntry(db);
     const targetService = new TargetService(db);
+    const confirmedSalesService = new ConfirmedSalesService(db);
     const exportService = new ExportService(db);
 
     targetService.saveMonthly({
@@ -1231,12 +1402,19 @@ describe('export service', () => {
         }))
       )
     });
+    confirmedSalesService.save({
+      targetMonth: '2026-07-01',
+      amountThousandYen: '175'
+    });
 
     const csv = exportService.buildMonthlyCsv('2026-07-01');
 
     expect(csv.content.charCodeAt(0)).toBe(0xfeff);
-    expect(csv.content).toContain('種別,名称,目標千円,累計千円,達成率,差額千円');
+    expect(csv.content).toContain(
+      '種別,名称,目標千円,概算売上千円,確定売上千円,概算達成率,確定達成率,概算差額千円,確定差額千円'
+    );
     expect(csv.content).toContain('全体,全体');
+    expect(csv.content).toContain('175千円');
     expect(csv.content).toContain('施設別');
     expect(csv.content).toContain('看護区分別');
 

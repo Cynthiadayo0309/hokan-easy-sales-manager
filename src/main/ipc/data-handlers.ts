@@ -6,16 +6,20 @@ import {
   type CopyPreviousWeeklyEntryInput,
   type GetWeeklyEntryInput,
   type SaveFacilityInput,
+  type SaveMonthlyConfirmedSalesInput,
+  type SaveMonthlyOverallSalesTargetInput,
   type SaveMonthlyTargetsInput,
   type SaveRateSettingsInput,
   type SaveWeeklyEntryInput
 } from '../../shared/types/app-api.js';
 import type { DatabaseManager } from '../db/connection.js';
 import { BackupService } from '../services/backup-service.js';
+import { ConfirmedSalesService } from '../services/confirmed-sales-service.js';
 import { DashboardService } from '../services/dashboard-service.js';
 import { EntryService } from '../services/entry-service.js';
 import { ExportService } from '../services/export-service.js';
 import { MonthClosingService } from '../services/month-closing-service.js';
+import { OverallSalesTargetService } from '../services/overall-sales-target-service.js';
 import { PeriodService } from '../services/period-service.js';
 import { RateService, TargetService } from '../services/rate-target-service.js';
 import { FacilityService, SetupService } from '../services/setup-service.js';
@@ -61,6 +65,18 @@ export function registerDataIpcHandlers(dbManager: DatabaseManager, userDataPath
   );
   handleDataIpc(IPC_CHANNELS.targetsCopyPreviousMonth, (input) =>
     new TargetService(db()).copyPreviousMonth(input as MonthInput)
+  );
+  handleDataIpc(IPC_CHANNELS.confirmedSalesGetByMonth, (input) =>
+    new ConfirmedSalesService(db()).getByMonth(input as MonthInput)
+  );
+  handleDataIpc(IPC_CHANNELS.confirmedSalesSave, (input) =>
+    new ConfirmedSalesService(db()).save(input as SaveMonthlyConfirmedSalesInput)
+  );
+  handleDataIpc(IPC_CHANNELS.overallSalesTargetsGetByMonth, (input) =>
+    new OverallSalesTargetService(db()).getByMonth(input as MonthInput)
+  );
+  handleDataIpc(IPC_CHANNELS.overallSalesTargetsSave, (input) =>
+    new OverallSalesTargetService(db()).save(input as SaveMonthlyOverallSalesTargetInput)
   );
   handleDataIpc(IPC_CHANNELS.periodsListByMonth, (input) =>
     new PeriodService(db()).listByMonth(input as MonthInput)

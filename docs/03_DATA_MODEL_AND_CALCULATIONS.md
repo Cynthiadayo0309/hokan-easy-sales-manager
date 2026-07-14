@@ -145,6 +145,34 @@
 - created_at
 - updated_at
 
+### monthly_confirmed_sales
+
+全施設・全看護区分を合算した月全体の確定売上。対象月につき1件とする。
+
+- id
+- target_month (`YYYY-MM-01`, unique)
+- confirmed_sales_yen
+- created_by
+- updated_by
+- created_at
+- updated_at
+
+レコードなしは未入力を表し、0円を保存したレコードとは区別する。
+
+### monthly_overall_sales_targets
+
+全施設・全看護区分を合算した月全体の売上目標。対象月につき1件とする。
+
+- id
+- target_month (`YYYY-MM-01`, unique)
+- target_sales_yen
+- created_by
+- updated_by
+- created_at
+- updated_at
+
+レコードなしは未入力を表し、0円を保存したレコードとは区別する。
+
 ## 3. 日曜始まりの月内期間生成
 
 対象月の1日から末日までを、日曜～土曜の境界で分割する。
@@ -259,9 +287,20 @@ sales_yen =
 
 ## 8. 達成率
 
+月全体の正式な達成率には確定売上を使用する。
+
+正式な目標額は次の優先順位で決定する。
+
+1. `monthly_overall_sales_targets.target_sales_yen`
+2. 未入力の場合は `monthly_targets.target_sales_yen` の月内合計
+
+月全体目標として0円が保存されている場合は内訳合計へフォールバックしない。
+
 ```text
-achievement_rate = actual_sales_yen / target_sales_yen * 100
+confirmed_achievement_rate = confirmed_sales_yen / target_sales_yen * 100
 ```
+
+施設別・看護区分別は確定売上を配賦せず、人数と単価から算出した概算売上による「概算達成率」を表示する。
 
 表示は原則として小数第1位まで。ただし整数表示でも読みやすい場合は、UI上で四捨五入した整数を主要表示し、詳細に小数第1位を表示してもよい。
 
@@ -274,7 +313,7 @@ achievement_rate = actual_sales_yen / target_sales_yen * 100
 ## 9. 目標差額
 
 ```text
-remaining_yen = target_sales_yen - actual_sales_yen
+remaining_yen = target_sales_yen - confirmed_sales_yen
 ```
 
 - 正数: 目標までの残額
@@ -390,6 +429,8 @@ amount_yen = round(input_thousand_yen * 1000)
 - 月内全期間が存在する
 - 全施設・全期間がcompleted
 - 目標が未設定の場合は警告
+- 月全体目標が未入力の場合は警告するが、内訳目標合計を使用して確認後の月締めは許可
+- 確定売上が未入力の場合は警告するが、確認後の月締めは許可
 - 単価未設定の入力がない
 
 締め後:
@@ -424,7 +465,7 @@ amount_yen = round(input_thousand_yen * 1000)
 - 売上千円
 - 入力状態
 
-月間集計CSVでは、目標、累計、達成率、差額も出力する。
+月間集計CSVでは、目標、概算売上、確定売上、概算達成率、確定達成率、各差額も出力する。施設別・看護区分別行の確定値は空欄とする。
 
 ## 19. 個人情報
 

@@ -593,6 +593,55 @@ select:focus-visible {
   margin-top: 22px;
 }
 
+.confirmed-sales-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+  margin-top: 22px;
+  border: 1px solid #b8d8d4;
+  border-radius: 10px;
+  background: #f2faf9;
+  padding: 18px;
+}
+
+.confirmed-sales-panel > div,
+.confirmed-sales-field {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.confirmed-sales-panel strong {
+  font-size: 28px;
+}
+
+.confirmed-sales-panel small {
+  color: #5c6b7a;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.confirmed-sales-field > span {
+  font-weight: 700;
+}
+
+.confirmed-sales-input-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.confirmed-sales-input-row input {
+  min-height: 46px;
+  width: 100%;
+  border: 1px solid #8fa7a4;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px 12px;
+  text-align: right;
+}
+
 .facility-tabs button {
   display: grid;
   gap: 4px;

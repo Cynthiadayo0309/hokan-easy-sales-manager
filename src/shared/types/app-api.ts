@@ -58,6 +58,26 @@ export interface MonthlyTarget {
   updatedAt: string;
 }
 
+export interface MonthlyConfirmedSales {
+  id: number;
+  targetMonth: string;
+  confirmedSalesYen: number;
+  createdBy: number;
+  updatedBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MonthlyOverallSalesTarget {
+  id: number;
+  targetMonth: string;
+  targetSalesYen: number;
+  createdBy: number;
+  updatedBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GeneratedMonthlyPeriod {
   periodIndex: number;
   startDate: string;
@@ -167,6 +187,10 @@ export interface DashboardInputStatus {
 export interface MonthlyDashboard {
   targetMonth: string;
   summary: DashboardSummary;
+  overallSalesTarget: MonthlyOverallSalesTarget | null;
+  targetSalesSource: 'overall' | 'detailed_sum';
+  confirmedSales: MonthlyConfirmedSales | null;
+  confirmedAchievement: AchievementResult | null;
   facilityRows: DashboardFacilityRow[];
   nursingCategoryRows: DashboardNursingCategoryRow[];
   periodRows: DashboardPeriodRow[];
@@ -188,7 +212,8 @@ export interface MonthClosingRecord {
 }
 
 export interface MonthClosingWarning {
-  type: 'missing_entry' | 'missing_target';
+  type:
+    'missing_entry' | 'missing_target' | 'missing_confirmed_sales' | 'missing_overall_sales_target';
   message: string;
   facilityId?: number;
   facilityName?: string;
@@ -293,6 +318,16 @@ export interface SaveMonthlyTargetsInput {
   }>;
 }
 
+export interface SaveMonthlyConfirmedSalesInput {
+  targetMonth: string;
+  amountThousandYen: string | number | null;
+}
+
+export interface SaveMonthlyOverallSalesTargetInput {
+  targetMonth: string;
+  amountThousandYen: string | number | null;
+}
+
 export interface GetWeeklyEntryInput {
   targetMonth: string;
   monthlyPeriodId: number;
@@ -349,6 +384,14 @@ export interface HokanAppApi {
     saveMonthly(input: SaveMonthlyTargetsInput): Promise<MonthlyTarget[]>;
     copyPreviousMonth(input: { targetMonth: string }): Promise<MonthlyTarget[]>;
   };
+  confirmedSales: {
+    getByMonth(input: { targetMonth: string }): Promise<MonthlyConfirmedSales | null>;
+    save(input: SaveMonthlyConfirmedSalesInput): Promise<MonthlyConfirmedSales | null>;
+  };
+  overallSalesTargets: {
+    getByMonth(input: { targetMonth: string }): Promise<MonthlyOverallSalesTarget | null>;
+    save(input: SaveMonthlyOverallSalesTargetInput): Promise<MonthlyOverallSalesTarget | null>;
+  };
   periods: {
     listByMonth(input: { targetMonth: string }): Promise<MonthlyPeriod[]>;
   };
@@ -395,6 +438,10 @@ export const IPC_CHANNELS = {
   targetsGetByMonth: 'targets:get-by-month',
   targetsSaveMonthly: 'targets:save-monthly',
   targetsCopyPreviousMonth: 'targets:copy-previous-month',
+  confirmedSalesGetByMonth: 'confirmed-sales:get-by-month',
+  confirmedSalesSave: 'confirmed-sales:save',
+  overallSalesTargetsGetByMonth: 'overall-sales-targets:get-by-month',
+  overallSalesTargetsSave: 'overall-sales-targets:save',
   periodsListByMonth: 'periods:list-by-month',
   entriesGet: 'entries:get',
   entriesSaveDraft: 'entries:save-draft',

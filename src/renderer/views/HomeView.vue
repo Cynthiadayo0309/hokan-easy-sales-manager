@@ -84,8 +84,8 @@ onMounted(() => {
   <section class="view-stack">
     <div class="notice">
       <p class="eyebrow">月間ダッシュボード</p>
-      <h2>{{ monthLabel }}の売上見込み</h2>
-      <p>月次入力と月間目標をもとに、月間累計、達成率、目標までの金額を確認します。</p>
+      <h2>{{ monthLabel }}の売上状況</h2>
+      <p>月間目標、人数から計算した概算売上、入力した確定売上と達成率を確認します。</p>
     </div>
 
     <section class="panel dashboard-toolbar" :aria-busy="loading">
@@ -112,18 +112,49 @@ onMounted(() => {
         <section class="summary-card">
           <p class="card-label">月間目標</p>
           <strong>{{ formatMoneyCompact(dashboard.summary.targetSalesYen) }}</strong>
+          <small v-if="dashboard.targetSalesSource === 'detailed_sum'" class="status-text">
+            内訳目標の合計を使用中
+          </small>
         </section>
         <section class="summary-card">
-          <p class="card-label">月間累計</p>
+          <p class="card-label">概算売上</p>
           <strong>{{ formatMoneyCompact(dashboard.summary.actualSalesYen) }}</strong>
         </section>
         <section class="summary-card">
-          <p class="card-label">達成率</p>
-          <strong>{{ formatAchievement(dashboard.summary.achievement) }}</strong>
+          <p class="card-label">確定売上</p>
+          <strong>
+            {{
+              dashboard.confirmedSales
+                ? formatMoneyCompact(dashboard.confirmedSales.confirmedSalesYen)
+                : '未入力'
+            }}
+          </strong>
         </section>
         <section class="summary-card">
-          <p class="card-label">{{ achievementNote(dashboard.summary.achievement) }}</p>
-          <strong>{{ formatRemaining(dashboard.summary.achievement) }}</strong>
+          <p class="card-label">確定達成率</p>
+          <strong>
+            {{
+              dashboard.confirmedAchievement
+                ? formatAchievement(dashboard.confirmedAchievement)
+                : '－'
+            }}
+          </strong>
+        </section>
+        <section class="summary-card">
+          <p class="card-label">
+            {{
+              dashboard.confirmedAchievement
+                ? achievementNote(dashboard.confirmedAchievement)
+                : '目標差額'
+            }}
+          </p>
+          <strong>
+            {{
+              dashboard.confirmedAchievement
+                ? formatRemaining(dashboard.confirmedAchievement)
+                : '－'
+            }}
+          </strong>
         </section>
       </div>
 
@@ -146,8 +177,8 @@ onMounted(() => {
           <div class="dashboard-row dashboard-head">
             <span>施設</span>
             <span>目標</span>
-            <span>累計</span>
-            <span>達成率</span>
+            <span>概算売上</span>
+            <span>概算達成率</span>
           </div>
           <div v-for="row in dashboard.facilityRows" :key="row.facilityId" class="dashboard-row">
             <strong>{{ row.facilityName }}</strong>
@@ -167,7 +198,7 @@ onMounted(() => {
           <div class="dashboard-row dashboard-head">
             <span>看護区分</span>
             <span>目標</span>
-            <span>累計</span>
+            <span>概算売上</span>
             <span>人数</span>
           </div>
           <div
