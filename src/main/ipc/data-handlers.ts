@@ -7,6 +7,7 @@ import {
   type GetWeeklyEntryInput,
   type SaveFacilityInput,
   type SaveMonthlyConfirmedSalesInput,
+  type SaveMonthlyFacilitySalesInput,
   type SaveMonthlyOverallSalesTargetInput,
   type SaveMonthlyTargetsInput,
   type SaveRateSettingsInput,
@@ -18,6 +19,7 @@ import { ConfirmedSalesService } from '../services/confirmed-sales-service.js';
 import { DashboardService } from '../services/dashboard-service.js';
 import { EntryService } from '../services/entry-service.js';
 import { ExportService } from '../services/export-service.js';
+import { FacilitySalesService } from '../services/facility-sales-service.js';
 import { MonthClosingService } from '../services/month-closing-service.js';
 import { OverallSalesTargetService } from '../services/overall-sales-target-service.js';
 import { PeriodService } from '../services/period-service.js';
@@ -77,6 +79,12 @@ export function registerDataIpcHandlers(dbManager: DatabaseManager, userDataPath
   );
   handleDataIpc(IPC_CHANNELS.overallSalesTargetsSave, (input) =>
     new OverallSalesTargetService(db()).save(input as SaveMonthlyOverallSalesTargetInput)
+  );
+  handleDataIpc(IPC_CHANNELS.facilitySalesGetByMonth, (input) =>
+    new FacilitySalesService(db()).getByMonth(input as MonthInput)
+  );
+  handleDataIpc(IPC_CHANNELS.facilitySalesSaveMonthly, (input) =>
+    new FacilitySalesService(db()).saveMonthly(input as SaveMonthlyFacilitySalesInput)
   );
   handleDataIpc(IPC_CHANNELS.periodsListByMonth, (input) =>
     new PeriodService(db()).listByMonth(input as MonthInput)

@@ -23,6 +23,8 @@ const IPC_CHANNELS = {
   confirmedSalesSave: 'confirmed-sales:save',
   overallSalesTargetsGetByMonth: 'overall-sales-targets:get-by-month',
   overallSalesTargetsSave: 'overall-sales-targets:save',
+  facilitySalesGetByMonth: 'facility-sales:get-by-month',
+  facilitySalesSaveMonthly: 'facility-sales:save-monthly',
   periodsListByMonth: 'periods:list-by-month',
   entriesGet: 'entries:get',
   entriesSaveDraft: 'entries:save-draft',
@@ -71,6 +73,10 @@ const api: HokanAppApi = {
   overallSalesTargets: {
     getByMonth: (input) => ipcRenderer.invoke(IPC_CHANNELS.overallSalesTargetsGetByMonth, input),
     save: (input) => ipcRenderer.invoke(IPC_CHANNELS.overallSalesTargetsSave, input)
+  },
+  facilitySales: {
+    getByMonth: (input) => ipcRenderer.invoke(IPC_CHANNELS.facilitySalesGetByMonth, input),
+    saveMonthly: (input) => ipcRenderer.invoke(IPC_CHANNELS.facilitySalesSaveMonthly, input)
   },
   periods: {
     listByMonth: (input) => ipcRenderer.invoke(IPC_CHANNELS.periodsListByMonth, input)

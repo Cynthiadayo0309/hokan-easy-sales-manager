@@ -78,6 +78,28 @@ export interface MonthlyOverallSalesTarget {
   updatedAt: string;
 }
 
+export interface MonthlyFacilitySalesTarget {
+  id: number;
+  targetMonth: string;
+  facilityId: number;
+  targetSalesYen: number;
+  createdBy: number;
+  updatedBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MonthlyFacilityConfirmedSales {
+  id: number;
+  targetMonth: string;
+  facilityId: number;
+  confirmedSalesYen: number;
+  createdBy: number;
+  updatedBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GeneratedMonthlyPeriod {
   periodIndex: number;
   startDate: string;
@@ -160,6 +182,10 @@ export interface DashboardSummary {
 export interface DashboardFacilityRow extends DashboardSummary {
   facilityId: number;
   facilityName: string;
+  facilitySalesTarget: MonthlyFacilitySalesTarget | null;
+  targetSalesSource: 'facility' | 'detailed_sum';
+  confirmedSales: MonthlyFacilityConfirmedSales | null;
+  confirmedAchievement: AchievementResult | null;
 }
 
 export interface DashboardNursingCategoryRow extends DashboardSummary {
@@ -188,8 +214,12 @@ export interface MonthlyDashboard {
   targetMonth: string;
   summary: DashboardSummary;
   overallSalesTarget: MonthlyOverallSalesTarget | null;
-  targetSalesSource: 'overall' | 'detailed_sum';
+  targetSalesSource: 'facility_sum' | 'overall' | 'detailed_sum';
   confirmedSales: MonthlyConfirmedSales | null;
+  confirmedSalesYen: number | null;
+  confirmedSalesSource: 'facility_sum' | 'overall' | 'incomplete';
+  confirmedFacilityCount: number;
+  facilityCount: number;
   confirmedAchievement: AchievementResult | null;
   facilityRows: DashboardFacilityRow[];
   nursingCategoryRows: DashboardNursingCategoryRow[];
@@ -213,7 +243,12 @@ export interface MonthClosingRecord {
 
 export interface MonthClosingWarning {
   type:
-    'missing_entry' | 'missing_target' | 'missing_confirmed_sales' | 'missing_overall_sales_target';
+    | 'missing_entry'
+    | 'missing_target'
+    | 'missing_confirmed_sales'
+    | 'missing_overall_sales_target'
+    | 'missing_facility_sales_target'
+    | 'missing_facility_confirmed_sales';
   message: string;
   facilityId?: number;
   facilityName?: string;
@@ -328,6 +363,20 @@ export interface SaveMonthlyOverallSalesTargetInput {
   amountThousandYen: string | number | null;
 }
 
+export interface SaveMonthlyFacilitySalesInput {
+  targetMonth: string;
+  facilities: Array<{
+    facilityId: number;
+    targetSalesThousandYen: string | number | null;
+    confirmedSalesThousandYen: string | number | null;
+  }>;
+}
+
+export interface MonthlyFacilitySalesInputData {
+  targets: MonthlyFacilitySalesTarget[];
+  confirmedSales: MonthlyFacilityConfirmedSales[];
+}
+
 export interface GetWeeklyEntryInput {
   targetMonth: string;
   monthlyPeriodId: number;
@@ -392,6 +441,10 @@ export interface HokanAppApi {
     getByMonth(input: { targetMonth: string }): Promise<MonthlyOverallSalesTarget | null>;
     save(input: SaveMonthlyOverallSalesTargetInput): Promise<MonthlyOverallSalesTarget | null>;
   };
+  facilitySales: {
+    getByMonth(input: { targetMonth: string }): Promise<MonthlyFacilitySalesInputData>;
+    saveMonthly(input: SaveMonthlyFacilitySalesInput): Promise<MonthlyFacilitySalesInputData>;
+  };
   periods: {
     listByMonth(input: { targetMonth: string }): Promise<MonthlyPeriod[]>;
   };
@@ -442,6 +495,8 @@ export const IPC_CHANNELS = {
   confirmedSalesSave: 'confirmed-sales:save',
   overallSalesTargetsGetByMonth: 'overall-sales-targets:get-by-month',
   overallSalesTargetsSave: 'overall-sales-targets:save',
+  facilitySalesGetByMonth: 'facility-sales:get-by-month',
+  facilitySalesSaveMonthly: 'facility-sales:save-monthly',
   periodsListByMonth: 'periods:list-by-month',
   entriesGet: 'entries:get',
   entriesSaveDraft: 'entries:save-draft',

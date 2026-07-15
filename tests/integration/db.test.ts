@@ -11,6 +11,7 @@ import { ConfirmedSalesService } from '../../src/main/services/confirmed-sales-s
 import { DashboardService } from '../../src/main/services/dashboard-service';
 import { EntryService } from '../../src/main/services/entry-service';
 import { ExportService } from '../../src/main/services/export-service';
+import { FacilitySalesService } from '../../src/main/services/facility-sales-service';
 import { MonthClosingService } from '../../src/main/services/month-closing-service';
 import { OverallSalesTargetService } from '../../src/main/services/overall-sales-target-service';
 import { PeriodService } from '../../src/main/services/period-service';
@@ -176,7 +177,7 @@ describe('database initialization', () => {
     seedInitialData(db);
 
     expect(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get()).toMatchObject({
-      count: 9
+      count: 10
     });
     expect(db.prepare('SELECT COUNT(*) AS count FROM facilities').get()).toMatchObject({
       count: 5
@@ -1175,6 +1176,111 @@ describe('overall sales target service', () => {
   });
 });
 
+describe('facility sales service', () => {
+  it('saves facility amounts, preserves zero, clears blanks, and validates all active facilities', () => {
+    const db = createTestDatabase();
+    const setup = new SetupService(db).getStatus();
+    const service = new FacilitySalesService(db);
+
+    const saved = service.saveMonthly({
+      targetMonth: '2026-07-01',
+      facilities: setup.facilities.map((facility, index) => ({
+        facilityId: facility.id,
+        targetSalesThousandYen: index === 0 ? '8.5' : 0,
+        confirmedSalesThousandYen: index === 0 ? '7.5' : 0
+      }))
+    });
+    expect(saved.targets[0].targetSalesYen).toBe(8_500);
+    expect(saved.confirmedSales[0].confirmedSalesYen).toBe(7_500);
+    expect(saved.targets.at(-1)?.targetSalesYen).toBe(0);
+
+    const cleared = service.saveMonthly({
+      targetMonth: '2026-07-01',
+      facilities: setup.facilities.map((facility) => ({
+        facilityId: facility.id,
+        targetSalesThousandYen: null,
+        confirmedSalesThousandYen: ''
+      }))
+    });
+    expect(cleared.targets).toHaveLength(0);
+    expect(cleared.confirmedSales).toHaveLength(0);
+    expect(() =>
+      service.saveMonthly({
+        targetMonth: '2026-07-01',
+        facilities: [
+          {
+            facilityId: setup.facilities[0].id,
+            targetSalesThousandYen: '8.55',
+            confirmedSalesThousandYen: null
+          }
+        ]
+      })
+    ).toThrow();
+
+    db.close();
+  });
+
+  it('uses facility targets with detailed fallback and waits for all confirmed sales', () => {
+    const db = createTestDatabase();
+    const setup = new SetupService(db).getStatus();
+    const targetService = new TargetService(db);
+    const legacyTargetService = new OverallSalesTargetService(db);
+    const legacyConfirmedService = new ConfirmedSalesService(db);
+    const facilitySalesService = new FacilitySalesService(db);
+    const dashboardService = new DashboardService(db);
+
+    targetService.saveMonthly({
+      targetMonth: '2026-07-01',
+      targets: setup.facilities.map((facility) => ({
+        facilityId: facility.id,
+        nursingCategoryId: setup.nursingCategories[0].id,
+        targetPeopleCount: 1,
+        targetVisitCount: 1,
+        targetSalesThousandYen: '100'
+      }))
+    });
+    legacyTargetService.save({ targetMonth: '2026-07-01', amountThousandYen: '999' });
+    legacyConfirmedService.save({ targetMonth: '2026-07-01', amountThousandYen: '888' });
+
+    const legacyDashboard = dashboardService.getMonthly({ targetMonth: '2026-07-01' });
+    expect(legacyDashboard.targetSalesSource).toBe('overall');
+    expect(legacyDashboard.confirmedSalesSource).toBe('overall');
+
+    facilitySalesService.saveMonthly({
+      targetMonth: '2026-07-01',
+      facilities: setup.facilities.map((facility, index) => ({
+        facilityId: facility.id,
+        targetSalesThousandYen: index === 0 ? '200' : null,
+        confirmedSalesThousandYen: index === 0 ? '150' : null
+      }))
+    });
+    const incomplete = dashboardService.getMonthly({ targetMonth: '2026-07-01' });
+    expect(incomplete.targetSalesSource).toBe('facility_sum');
+    expect(incomplete.summary.targetSalesYen).toBe(600_000);
+    expect(incomplete.facilityRows[0].targetSalesSource).toBe('facility');
+    expect(incomplete.facilityRows[1].targetSalesSource).toBe('detailed_sum');
+    expect(incomplete.confirmedSalesYen).toBeNull();
+    expect(incomplete.confirmedAchievement).toBeNull();
+    expect(incomplete.confirmedSalesSource).toBe('incomplete');
+
+    facilitySalesService.saveMonthly({
+      targetMonth: '2026-07-01',
+      facilities: setup.facilities.map((facility, index) => ({
+        facilityId: facility.id,
+        targetSalesThousandYen: index === 0 ? '200' : null,
+        confirmedSalesThousandYen: index === 0 ? '150' : '100'
+      }))
+    });
+    const complete = dashboardService.getMonthly({ targetMonth: '2026-07-01' });
+    expect(complete.confirmedSalesYen).toBe(550_000);
+    expect(complete.confirmedFacilityCount).toBe(5);
+    expect(complete.confirmedAchievement?.ratePercent).toBe(91.7);
+    expect(complete.facilityRows[0].confirmedAchievement?.ratePercent).toBe(75);
+
+    db.close();
+  });
+});
+
 describe('month closing service', () => {
   it('closes a month after all entries are completed and blocks edits until reopened', () => {
     const db = createTestDatabase();
@@ -1184,6 +1290,7 @@ describe('month closing service', () => {
     const targetService = new TargetService(db);
     const confirmedSalesService = new ConfirmedSalesService(db);
     const overallSalesTargetService = new OverallSalesTargetService(db);
+    const facilitySalesService = new FacilitySalesService(db);
     const closingService = new MonthClosingService(db);
     const periods = periodService.listByMonth({ targetMonth: '2026-07-01' });
     const [facility] = status.facilities;
@@ -1215,6 +1322,14 @@ describe('month closing service', () => {
     overallSalesTargetService.save({
       targetMonth: '2026-07-01',
       amountThousandYen: '200'
+    });
+    facilitySalesService.saveMonthly({
+      targetMonth: '2026-07-01',
+      facilities: status.facilities.map((targetFacility) => ({
+        facilityId: targetFacility.id,
+        targetSalesThousandYen: '40',
+        confirmedSalesThousandYen: '20'
+      }))
     });
 
     const closed = closingService.closeMonth({
@@ -1253,6 +1368,16 @@ describe('month closing service', () => {
         amountThousandYen: '300'
       })
     ).toThrow('MONTH_CLOSED');
+    expect(() =>
+      facilitySalesService.saveMonthly({
+        targetMonth: '2026-07-01',
+        facilities: status.facilities.map((targetFacility) => ({
+          facilityId: targetFacility.id,
+          targetSalesThousandYen: '50',
+          confirmedSalesThousandYen: '30'
+        }))
+      })
+    ).toThrow('MONTH_CLOSED');
 
     const reopened = closingService.reopenMonth({ targetMonth: '2026-07-01' });
     expect(reopened.status).toBe('open');
@@ -1282,12 +1407,12 @@ describe('month closing service', () => {
     expect(status.canClose).toBe(false);
     expect(status.warnings.some((warning) => warning.type === 'missing_entry')).toBe(true);
     expect(status.warnings.some((warning) => warning.type === 'missing_target')).toBe(true);
-    expect(status.warnings.some((warning) => warning.type === 'missing_overall_sales_target')).toBe(
-      true
-    );
-    expect(status.warnings.some((warning) => warning.type === 'missing_confirmed_sales')).toBe(
-      true
-    );
+    expect(
+      status.warnings.some((warning) => warning.type === 'missing_facility_sales_target')
+    ).toBe(true);
+    expect(
+      status.warnings.some((warning) => warning.type === 'missing_facility_confirmed_sales')
+    ).toBe(true);
     expect(() =>
       closingService.closeMonth({ targetMonth: '2026-07-01', acknowledgeWarnings: true })
     ).toThrow('MONTH_CLOSING_INCOMPLETE');

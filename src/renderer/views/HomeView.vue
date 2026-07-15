@@ -115,6 +115,9 @@ onMounted(() => {
           <small v-if="dashboard.targetSalesSource === 'detailed_sum'" class="status-text">
             内訳目標の合計を使用中
           </small>
+          <small v-else-if="dashboard.targetSalesSource === 'overall'" class="status-text">
+            旧入力の月全体目標を使用中
+          </small>
         </section>
         <section class="summary-card">
           <p class="card-label">概算売上</p>
@@ -124,11 +127,18 @@ onMounted(() => {
           <p class="card-label">確定売上</p>
           <strong>
             {{
-              dashboard.confirmedSales
-                ? formatMoneyCompact(dashboard.confirmedSales.confirmedSalesYen)
-                : '未入力'
+              dashboard.confirmedSalesYen === null
+                ? '－'
+                : formatMoneyCompact(dashboard.confirmedSalesYen)
             }}
           </strong>
+          <small class="card-note">
+            {{
+              dashboard.confirmedSalesSource === 'overall'
+                ? '旧入力の月全体値'
+                : `${dashboard.confirmedFacilityCount}/${dashboard.facilityCount}施設入力済み`
+            }}
+          </small>
         </section>
         <section class="summary-card">
           <p class="card-label">確定達成率</p>
@@ -178,13 +188,21 @@ onMounted(() => {
             <span>施設</span>
             <span>目標</span>
             <span>概算売上</span>
-            <span>概算達成率</span>
+            <span>確定売上</span>
+            <span>確定達成率</span>
           </div>
           <div v-for="row in dashboard.facilityRows" :key="row.facilityId" class="dashboard-row">
             <strong>{{ row.facilityName }}</strong>
             <span>{{ formatMoneyCompact(row.targetSalesYen) }}</span>
             <span>{{ formatMoneyCompact(row.actualSalesYen) }}</span>
-            <span>{{ formatAchievement(row.achievement) }}</span>
+            <span>{{
+              row.confirmedSales
+                ? formatMoneyCompact(row.confirmedSales.confirmedSalesYen)
+                : '未入力'
+            }}</span>
+            <span>{{
+              row.confirmedAchievement ? formatAchievement(row.confirmedAchievement) : '－'
+            }}</span>
           </div>
         </div>
       </section>
@@ -195,7 +213,7 @@ onMounted(() => {
           <span class="status-text">{{ dashboard.nursingCategoryRows.length }}区分</span>
         </div>
         <div class="dashboard-table">
-          <div class="dashboard-row dashboard-head">
+          <div class="dashboard-row dashboard-row-four dashboard-head">
             <span>看護区分</span>
             <span>目標</span>
             <span>概算売上</span>
@@ -204,7 +222,7 @@ onMounted(() => {
           <div
             v-for="row in dashboard.nursingCategoryRows"
             :key="row.nursingCategoryId"
-            class="dashboard-row"
+            class="dashboard-row dashboard-row-four"
           >
             <strong>{{ row.nursingCategoryName }}</strong>
             <span>{{ formatMoneyCompact(row.targetSalesYen) }}</span>

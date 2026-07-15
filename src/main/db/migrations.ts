@@ -402,6 +402,35 @@ export const migrations: Migration[] = [
         updated_at TEXT NOT NULL
       );
     `
+  },
+  {
+    version: 10,
+    name: 'monthly_facility_sales',
+    sql: `
+      CREATE TABLE IF NOT EXISTS monthly_facility_sales_targets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_month TEXT NOT NULL,
+        facility_id INTEGER NOT NULL REFERENCES facilities(id),
+        target_sales_yen INTEGER NOT NULL CHECK (target_sales_yen >= 0),
+        created_by INTEGER NOT NULL REFERENCES users(id),
+        updated_by INTEGER NOT NULL REFERENCES users(id),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (target_month, facility_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS monthly_facility_confirmed_sales (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_month TEXT NOT NULL,
+        facility_id INTEGER NOT NULL REFERENCES facilities(id),
+        confirmed_sales_yen INTEGER NOT NULL CHECK (confirmed_sales_yen >= 0),
+        created_by INTEGER NOT NULL REFERENCES users(id),
+        updated_by INTEGER NOT NULL REFERENCES users(id),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (target_month, facility_id)
+      );
+    `
   }
 ];
 

@@ -18,6 +18,7 @@ import type {
 import type { AppDatabase } from '../db/connection.js';
 import { FacilityRepository } from '../db/repositories/facility-repository.js';
 import { MonthlyConfirmedSalesRepository } from '../db/repositories/monthly-confirmed-sales-repository.js';
+import { MonthlyFacilitySalesRepository } from '../db/repositories/monthly-facility-sales-repository.js';
 import { MonthlyOverallSalesTargetRepository } from '../db/repositories/monthly-overall-sales-target-repository.js';
 import { MonthlyPeriodRepository } from '../db/repositories/monthly-period-repository.js';
 import { MonthlyTargetRepository } from '../db/repositories/monthly-target-repository.js';
@@ -41,6 +42,7 @@ export class DashboardService {
   private readonly targets: MonthlyTargetRepository;
   private readonly entries: WeeklyEntryRepository;
   private readonly confirmedSales: MonthlyConfirmedSalesRepository;
+  private readonly facilitySales: MonthlyFacilitySalesRepository;
   private readonly overallSalesTargets: MonthlyOverallSalesTargetRepository;
 
   constructor(db: AppDatabase) {
@@ -50,6 +52,7 @@ export class DashboardService {
     this.targets = new MonthlyTargetRepository(db);
     this.entries = new WeeklyEntryRepository(db);
     this.confirmedSales = new MonthlyConfirmedSalesRepository(db);
+    this.facilitySales = new MonthlyFacilitySalesRepository(db);
     this.overallSalesTargets = new MonthlyOverallSalesTargetRepository(db);
   }
 
@@ -74,6 +77,12 @@ export class DashboardService {
       );
     const confirmedSales = this.confirmedSales.getByMonth(targetMonth);
     const overallSalesTarget = this.overallSalesTargets.getByMonth(targetMonth);
+    const facilitySalesTargets = this.facilitySales
+      .getTargetsByMonth(targetMonth)
+      .filter((row) => facilityIds.has(row.facilityId));
+    const facilityConfirmedSales = this.facilitySales
+      .getConfirmedByMonth(targetMonth)
+      .filter((row) => facilityIds.has(row.facilityId));
     const daysInMonth = getDaysInMonth(targetMonth);
     const completedDayCount = this.calculateCompletedDayCount(periods, facilities, entries);
     const summaryAccumulator = createAccumulator();
@@ -106,9 +115,32 @@ export class DashboardService {
       }
     });
 
-    const targetSalesSource = overallSalesTarget ? 'overall' : 'detailed_sum';
-    summaryAccumulator.targetSalesYen =
-      overallSalesTarget?.targetSalesYen ?? summaryAccumulator.targetSalesYen;
+    const facilityTargetMap = new Map(
+      facilitySalesTargets.map((target) => [target.facilityId, target])
+    );
+    const facilityConfirmedMap = new Map(
+      facilityConfirmedSales.map((sales) => [sales.facilityId, sales])
+    );
+    let targetSalesSource: MonthlyDashboard['targetSalesSource'];
+    if (facilitySalesTargets.length > 0) {
+      facilities.forEach((facility) => {
+        const explicitTarget = facilityTargetMap.get(facility.id);
+        const accumulator = facilityAccumulators.get(facility.id);
+        if (explicitTarget && accumulator) {
+          accumulator.targetSalesYen = explicitTarget.targetSalesYen;
+        }
+      });
+      summaryAccumulator.targetSalesYen = [...facilityAccumulators.values()].reduce(
+        (sum, accumulator) => sum + accumulator.targetSalesYen,
+        0
+      );
+      targetSalesSource = 'facility_sum';
+    } else if (overallSalesTarget) {
+      summaryAccumulator.targetSalesYen = overallSalesTarget.targetSalesYen;
+      targetSalesSource = 'overall';
+    } else {
+      targetSalesSource = 'detailed_sum';
+    }
 
     entries.forEach((entry) => {
       const facilityAccumulator = facilityAccumulators.get(entry.facilityId);
@@ -137,15 +169,35 @@ export class DashboardService {
       });
     });
 
+    let confirmedSalesYen: number | null = null;
+    let confirmedSalesSource: MonthlyDashboard['confirmedSalesSource'] = 'incomplete';
+    if (facilityConfirmedSales.length > 0) {
+      if (facilityConfirmedSales.length === facilities.length && facilities.length > 0) {
+        confirmedSalesYen = facilityConfirmedSales.reduce(
+          (sum, row) => sum + row.confirmedSalesYen,
+          0
+        );
+        confirmedSalesSource = 'facility_sum';
+      }
+    } else if (confirmedSales) {
+      confirmedSalesYen = confirmedSales.confirmedSalesYen;
+      confirmedSalesSource = 'overall';
+    }
+
     return {
       targetMonth,
       summary: toSummary(summaryAccumulator, completedDayCount, daysInMonth),
       overallSalesTarget,
       targetSalesSource,
       confirmedSales,
-      confirmedAchievement: confirmedSales
-        ? calculateAchievement(summaryAccumulator.targetSalesYen, confirmedSales.confirmedSalesYen)
-        : null,
+      confirmedSalesYen,
+      confirmedSalesSource,
+      confirmedFacilityCount: facilityConfirmedSales.length,
+      facilityCount: facilities.length,
+      confirmedAchievement:
+        confirmedSalesYen !== null
+          ? calculateAchievement(summaryAccumulator.targetSalesYen, confirmedSalesYen)
+          : null,
       facilityRows: facilities.map((facility) =>
         toFacilityRow(
           facility,
@@ -155,7 +207,9 @@ export class DashboardService {
             entryMapByPeriodAndFacility(entries),
             facility.id
           ),
-          daysInMonth
+          daysInMonth,
+          facilityTargetMap.get(facility.id) ?? null,
+          facilityConfirmedMap.get(facility.id) ?? null
         )
       ),
       nursingCategoryRows: nursingCategories.map((category) =>
@@ -250,12 +304,21 @@ function toFacilityRow(
   facility: Facility,
   accumulator: DashboardAccumulator,
   completedDayCount: number,
-  daysInMonth: number
+  daysInMonth: number,
+  facilitySalesTarget: DashboardFacilityRow['facilitySalesTarget'],
+  confirmedSales: DashboardFacilityRow['confirmedSales']
 ): DashboardFacilityRow {
+  const summary = toSummary(accumulator, completedDayCount, daysInMonth);
   return {
     facilityId: facility.id,
     facilityName: facility.name,
-    ...toSummary(accumulator, completedDayCount, daysInMonth)
+    ...summary,
+    facilitySalesTarget,
+    targetSalesSource: facilitySalesTarget ? 'facility' : 'detailed_sum',
+    confirmedSales,
+    confirmedAchievement: confirmedSales
+      ? calculateAchievement(summary.targetSalesYen, confirmedSales.confirmedSalesYen)
+      : null
   };
 }
 

@@ -29,13 +29,14 @@ const missingTargetWarnings = computed(
 );
 const missingConfirmedSalesWarnings = computed(
   () =>
-    closingStatus.value?.warnings.filter((warning) => warning.type === 'missing_confirmed_sales') ??
-    []
+    closingStatus.value?.warnings.filter(
+      (warning) => warning.type === 'missing_facility_confirmed_sales'
+    ) ?? []
 );
 const missingOverallSalesTargetWarnings = computed(
   () =>
     closingStatus.value?.warnings.filter(
-      (warning) => warning.type === 'missing_overall_sales_target'
+      (warning) => warning.type === 'missing_facility_sales_target'
     ) ?? []
 );
 
@@ -176,6 +177,9 @@ onMounted(() => {
           <small v-if="dashboard.targetSalesSource === 'detailed_sum'" class="status-text">
             内訳目標の合計を使用中
           </small>
+          <small v-else-if="dashboard.targetSalesSource === 'overall'" class="status-text">
+            旧入力の月全体目標を使用中
+          </small>
         </section>
         <section class="summary-card">
           <p class="card-label">概算売上</p>
@@ -185,11 +189,18 @@ onMounted(() => {
           <p class="card-label">確定売上</p>
           <strong>
             {{
-              dashboard.confirmedSales
-                ? formatMoneyCompact(dashboard.confirmedSales.confirmedSalesYen)
-                : '未入力'
+              dashboard.confirmedSalesYen === null
+                ? '－'
+                : formatMoneyCompact(dashboard.confirmedSalesYen)
             }}
           </strong>
+          <small class="card-note">
+            {{
+              dashboard.confirmedSalesSource === 'overall'
+                ? '旧入力の月全体値'
+                : `${dashboard.confirmedFacilityCount}/${dashboard.facilityCount}施設入力済み`
+            }}
+          </small>
         </section>
         <section class="summary-card">
           <p class="card-label">確定達成率</p>
@@ -205,13 +216,51 @@ onMounted(() => {
         </section>
       </div>
 
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>施設別売上</h2>
+            <p class="card-label">施設ごとの目標・概算・確定売上を確認します</p>
+          </div>
+          <span class="status-text">
+            確定 {{ dashboard.confirmedFacilityCount }}/{{ dashboard.facilityCount }}施設
+          </span>
+        </div>
+        <div class="dashboard-table">
+          <div class="dashboard-row dashboard-head">
+            <span>施設</span>
+            <span>目標</span>
+            <span>概算売上</span>
+            <span>確定売上</span>
+            <span>確定達成率</span>
+            <span>目標差額</span>
+          </div>
+          <div v-for="row in dashboard.facilityRows" :key="row.facilityId" class="dashboard-row">
+            <strong>{{ row.facilityName }}</strong>
+            <span>{{ formatMoneyCompact(row.targetSalesYen) }}</span>
+            <span>{{ formatMoneyCompact(row.actualSalesYen) }}</span>
+            <span>{{
+              row.confirmedSales
+                ? formatMoneyCompact(row.confirmedSales.confirmedSalesYen)
+                : '未入力'
+            }}</span>
+            <span>{{ formatAchievement(row.confirmedAchievement) }}</span>
+            <span>{{
+              row.confirmedAchievement
+                ? formatMoneyCompact(Math.abs(row.confirmedAchievement.remainingYen))
+                : '－'
+            }}</span>
+          </div>
+        </div>
+      </section>
+
       <section class="panel" :aria-busy="saving">
         <div class="panel-heading">
           <div>
             <h2>月締め</h2>
             <p class="card-label">
               未入力 {{ missingEntryWarnings.length }}件 / 目標未設定
-              {{ missingTargetWarnings.length }}件 / 月全体目標未入力
+              {{ missingTargetWarnings.length }}件 / 施設別目標未入力
               {{ missingOverallSalesTargetWarnings.length }}件 / 確定売上未入力
               {{ missingConfirmedSalesWarnings.length }}件
             </p>

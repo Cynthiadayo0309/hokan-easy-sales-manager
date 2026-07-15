@@ -7,6 +7,7 @@ import { weeklyEntryStatusLabel } from '@shared/calculations/entry-status';
 import { yenToThousandYenLabel } from '@shared/calculations/dashboard';
 import type {
   Facility,
+  AchievementResult,
   MonthlyDashboard,
   MonthlyPeriod,
   MonthClosingStatus,
@@ -28,14 +29,18 @@ const nursingCategories = ref<NursingCategory[]>([]);
 const statusMatrix = ref<WeeklyEntryStatusMatrix | null>(null);
 const monthlyDashboard = ref<MonthlyDashboard | null>(null);
 const closingStatus = ref<MonthClosingStatus | null>(null);
-const overallSalesTargetInput = ref('');
-const confirmedSalesInput = ref('');
+const facilitySalesInputs = ref<
+  Array<{
+    facilityId: number;
+    targetSalesThousandYen: string;
+    confirmedSalesThousandYen: string;
+  }>
+>([]);
 const currentForm = ref<WeeklyEntryForm | null>(null);
 const formDetails = ref<SaveWeeklyEntryDetailInput[]>([]);
 const loading = ref(true);
 const saving = ref(false);
-const savingConfirmedSales = ref(false);
-const savingOverallSalesTarget = ref(false);
+const savingFacilitySales = ref(false);
 const message = ref<string | null>(null);
 const errorMessage = ref<string | null>(null);
 const { clearSaveFeedback, saveFeedback, showSaveFeedback } = useSaveFeedback();
@@ -83,6 +88,28 @@ function statusLabel(status: WeeklyEntryStatus): string {
 
 function formatYen(amountYen: number): string {
   return `${amountYen.toLocaleString('ja-JP')}円`;
+}
+
+function formatAchievement(achievement: AchievementResult | null): string {
+  return achievement?.ratePercent === null || !achievement
+    ? '－'
+    : `${achievement.ratePercent.toFixed(1)}%`;
+}
+
+function applyFacilitySalesInputs(dashboard: MonthlyDashboard): void {
+  facilitySalesInputs.value = dashboard.facilityRows.map((row) => ({
+    facilityId: row.facilityId,
+    targetSalesThousandYen: row.facilitySalesTarget
+      ? String(row.facilitySalesTarget.targetSalesYen / 1000)
+      : '',
+    confirmedSalesThousandYen: row.confirmedSales
+      ? String(row.confirmedSales.confirmedSalesYen / 1000)
+      : ''
+  }));
+}
+
+function salesInput(facilityId: number) {
+  return facilitySalesInputs.value.find((row) => row.facilityId === facilityId)!;
 }
 
 function inputValue(value: number | null): string {
@@ -179,20 +206,13 @@ async function loadMonth(): Promise<void> {
     const setupStatus = await window.hokanApp.setup.getStatus();
     nursingCategories.value = setupStatus.nursingCategories;
     await refreshStatusMatrix();
-    const [dashboardResult, closingResult, overallSalesTarget, confirmedSales] = await Promise.all([
+    const [dashboardResult, closingResult] = await Promise.all([
       window.hokanApp.dashboard.getMonthly({ targetMonth: targetMonth.value }),
-      window.hokanApp.closings.getStatus({ targetMonth: targetMonth.value }),
-      window.hokanApp.overallSalesTargets.getByMonth({ targetMonth: targetMonth.value }),
-      window.hokanApp.confirmedSales.getByMonth({ targetMonth: targetMonth.value })
+      window.hokanApp.closings.getStatus({ targetMonth: targetMonth.value })
     ]);
     monthlyDashboard.value = dashboardResult;
     closingStatus.value = closingResult;
-    overallSalesTargetInput.value = overallSalesTarget
-      ? String(overallSalesTarget.targetSalesYen / 1000)
-      : '';
-    confirmedSalesInput.value = confirmedSales
-      ? String(confirmedSales.confirmedSalesYen / 1000)
-      : '';
+    applyFacilitySalesInputs(dashboardResult);
 
     selectedPeriodId.value = periods.value[0]?.id ?? null;
 
@@ -208,65 +228,39 @@ async function loadMonth(): Promise<void> {
   }
 }
 
-async function saveOverallSalesTarget(): Promise<void> {
-  if (savingOverallSalesTarget.value || monthClosed.value) {
+async function saveFacilitySales(): Promise<void> {
+  if (savingFacilitySales.value || monthClosed.value) {
     return;
   }
 
-  savingOverallSalesTarget.value = true;
+  savingFacilitySales.value = true;
   clearSaveFeedback();
 
   try {
-    const inputValue = overallSalesTargetInput.value.trim();
-    const saved = await window.hokanApp.overallSalesTargets.save({
+    await window.hokanApp.facilitySales.saveMonthly({
       targetMonth: targetMonth.value,
-      amountThousandYen: inputValue === '' ? null : inputValue
+      facilities: facilitySalesInputs.value.map((row) => ({
+        facilityId: row.facilityId,
+        targetSalesThousandYen:
+          row.targetSalesThousandYen.trim() === '' ? null : row.targetSalesThousandYen,
+        confirmedSalesThousandYen:
+          row.confirmedSalesThousandYen.trim() === '' ? null : row.confirmedSalesThousandYen
+      }))
     });
-    overallSalesTargetInput.value = saved ? String(saved.targetSalesYen / 1000) : '';
     const [dashboardResult, closingResult] = await Promise.all([
       window.hokanApp.dashboard.getMonthly({ targetMonth: targetMonth.value }),
       window.hokanApp.closings.getStatus({ targetMonth: targetMonth.value })
     ]);
     monthlyDashboard.value = dashboardResult;
     closingStatus.value = closingResult;
-    showSaveFeedback('月全体の売上目標');
-    setMessage(saved ? '月全体の売上目標を保存しました。' : '売上目標を未入力に戻しました。');
+    applyFacilitySalesInputs(dashboardResult);
+    showSaveFeedback('施設別の売上目標・確定売上');
+    setMessage('施設別の売上目標・確定売上を保存しました。');
   } catch {
     clearSaveFeedback();
-    setError('売上目標を保存できませんでした。0以上の金額を千円単位で入力してください。');
+    setError('保存できませんでした。各施設に0以上の金額を千円単位で入力してください。');
   } finally {
-    savingOverallSalesTarget.value = false;
-  }
-}
-
-async function saveConfirmedSales(): Promise<void> {
-  if (savingConfirmedSales.value || monthClosed.value) {
-    return;
-  }
-
-  savingConfirmedSales.value = true;
-  clearSaveFeedback();
-
-  try {
-    const inputValue = confirmedSalesInput.value.trim();
-    const saved = await window.hokanApp.confirmedSales.save({
-      targetMonth: targetMonth.value,
-      amountThousandYen: inputValue === '' ? null : inputValue
-    });
-    confirmedSalesInput.value = saved ? String(saved.confirmedSalesYen / 1000) : '';
-    const [dashboardResult, closingResult] = await Promise.all([
-      window.hokanApp.dashboard.getMonthly({ targetMonth: targetMonth.value }),
-      window.hokanApp.closings.getStatus({ targetMonth: targetMonth.value })
-    ]);
-    monthlyDashboard.value = dashboardResult;
-    closingStatus.value = closingResult;
-    showSaveFeedback('月全体の確定売上');
-    setMessage(saved ? '月全体の確定売上を保存しました。' : '確定売上を未入力に戻しました。');
-  } catch {
-    clearSaveFeedback();
-    setError('確定売上を保存できませんでした。0以上の金額を千円単位で入力してください。');
-  } finally {
-    savingConfirmedSales.value = false;
+    savingFacilitySales.value = false;
   }
 }
 
@@ -411,10 +405,7 @@ onMounted(() => {
       {{ saveFeedback }}
     </p>
 
-    <section
-      class="panel"
-      :aria-busy="loading || saving || savingConfirmedSales || savingOverallSalesTarget"
-    >
+    <section class="panel" :aria-busy="loading || saving || savingFacilitySales">
       <div class="panel-heading">
         <div>
           <h2>{{ monthLabel }}</h2>
@@ -435,62 +426,145 @@ onMounted(() => {
           この月は締め済みです。売上目標、確定売上、月次人数を変更するには「過去月」から再開してください。
         </p>
 
-        <section class="confirmed-sales-panel" aria-labelledby="confirmed-sales-heading">
-          <div>
-            <p class="card-label">月全体の概算売上</p>
-            <strong id="confirmed-sales-heading">
-              {{ yenToThousandYenLabel(monthlyDashboard?.summary.actualSalesYen ?? 0) }}
-            </strong>
-            <small>施設別・看護区分別の月次人数と単価から計算しています。</small>
+        <section class="facility-sales-panel" aria-labelledby="facility-sales-heading">
+          <div class="facility-sales-heading">
+            <div>
+              <p class="eyebrow">施設別売上</p>
+              <h3 id="facility-sales-heading">売上目標・確定売上</h3>
+              <p>各施設の金額を千円単位で入力します。空欄で保存すると未入力に戻ります。</p>
+            </div>
+            <button
+              class="primary-button"
+              :disabled="monthClosed || savingFacilitySales"
+              type="button"
+              @click="saveFacilitySales"
+            >
+              {{ savingFacilitySales ? '保存中' : '施設別売上を保存' }}
+            </button>
           </div>
-          <label class="confirmed-sales-field">
-            <span>月全体の売上目標（千円）</span>
-            <div class="confirmed-sales-input-row">
-              <input
-                v-model="overallSalesTargetInput"
-                :disabled="monthClosed || savingOverallSalesTarget"
-                inputmode="decimal"
-                placeholder="例: 5000"
-                type="text"
-              />
-              <span>千円</span>
-              <button
-                class="primary-button"
-                :disabled="monthClosed || savingOverallSalesTarget"
-                type="button"
-                @click="saveOverallSalesTarget"
-              >
-                {{ savingOverallSalesTarget ? '保存中' : '売上目標を保存' }}
-              </button>
+
+          <div class="facility-sales-summary" aria-label="施設別売上の全体サマリー">
+            <div>
+              <span>概算合計</span>
+              <strong>{{
+                yenToThousandYenLabel(monthlyDashboard?.summary.actualSalesYen ?? 0)
+              }}</strong>
             </div>
-            <small v-if="monthlyDashboard?.targetSalesSource === 'detailed_sum'">
-              未入力のため、施設・区分別目標の合計
-              {{ yenToThousandYenLabel(monthlyDashboard.summary.targetSalesYen) }}を使用中です。
-            </small>
-            <small v-else>全施設・全看護区分を合算した目標金額です。</small>
-          </label>
-          <label class="confirmed-sales-field">
-            <span>月全体の確定売上（千円）</span>
-            <div class="confirmed-sales-input-row">
-              <input
-                v-model="confirmedSalesInput"
-                :disabled="monthClosed || savingConfirmedSales"
-                inputmode="decimal"
-                placeholder="例: 1250.5"
-                type="text"
-              />
-              <span>千円</span>
-              <button
-                class="primary-button"
-                :disabled="monthClosed || savingConfirmedSales"
-                type="button"
-                @click="saveConfirmedSales"
-              >
-                {{ savingConfirmedSales ? '保存中' : '確定売上を保存' }}
-              </button>
+            <div>
+              <span>有効目標合計</span>
+              <strong>{{
+                yenToThousandYenLabel(monthlyDashboard?.summary.targetSalesYen ?? 0)
+              }}</strong>
             </div>
-            <small>全施設・全看護区分を合算した金額です。空欄で保存すると未入力に戻ります。</small>
-          </label>
+            <div>
+              <span>確定入力</span>
+              <strong
+                >{{ monthlyDashboard?.confirmedFacilityCount ?? 0 }}/{{
+                  facilities.length
+                }}施設</strong
+              >
+            </div>
+            <div>
+              <span>確定合計</span>
+              <strong>
+                {{
+                  monthlyDashboard?.confirmedSalesYen === null
+                    ? '－'
+                    : yenToThousandYenLabel(monthlyDashboard?.confirmedSalesYen ?? 0)
+                }}
+              </strong>
+            </div>
+            <div>
+              <span>確定達成率</span>
+              <strong>{{
+                formatAchievement(monthlyDashboard?.confirmedAchievement ?? null)
+              }}</strong>
+            </div>
+          </div>
+
+          <p
+            v-if="monthlyDashboard?.overallSalesTarget || monthlyDashboard?.confirmedSales"
+            class="legacy-sales-note"
+          >
+            旧入力の月全体値：目標
+            {{
+              monthlyDashboard.overallSalesTarget
+                ? yenToThousandYenLabel(monthlyDashboard.overallSalesTarget.targetSalesYen)
+                : '未入力'
+            }}
+            ／ 確定
+            {{
+              monthlyDashboard.confirmedSales
+                ? yenToThousandYenLabel(monthlyDashboard.confirmedSales.confirmedSalesYen)
+                : '未入力'
+            }}。 施設別入力を開始した項目は施設合計を使用します。
+          </p>
+
+          <div class="facility-sales-table" role="table" aria-label="施設別の売上目標と確定売上">
+            <div class="facility-sales-row facility-sales-head" role="row">
+              <span>施設</span>
+              <span>概算売上</span>
+              <span>売上目標（千円）</span>
+              <span>確定売上（千円）</span>
+              <span>確定達成率</span>
+            </div>
+            <div
+              v-for="row in monthlyDashboard?.facilityRows ?? []"
+              :key="row.facilityId"
+              class="facility-sales-row"
+              role="row"
+            >
+              <strong>{{ row.facilityName }}</strong>
+              <span class="numeric-cell">{{ yenToThousandYenLabel(row.actualSalesYen) }}</span>
+              <label class="facility-sales-input">
+                <span class="sr-only">{{ row.facilityName }}の売上目標</span>
+                <input
+                  v-model="salesInput(row.facilityId).targetSalesThousandYen"
+                  :disabled="monthClosed || savingFacilitySales"
+                  inputmode="decimal"
+                  placeholder="未入力"
+                  type="text"
+                />
+                <small v-if="row.targetSalesSource === 'detailed_sum'">
+                  内訳目標の合計を使用中：{{ yenToThousandYenLabel(row.targetSalesYen) }}
+                </small>
+                <small v-else class="input-status-saved">施設別目標を使用中</small>
+              </label>
+              <label class="facility-sales-input">
+                <span class="sr-only">{{ row.facilityName }}の確定売上</span>
+                <input
+                  v-model="salesInput(row.facilityId).confirmedSalesThousandYen"
+                  :disabled="monthClosed || savingFacilitySales"
+                  inputmode="decimal"
+                  placeholder="未入力"
+                  type="text"
+                />
+                <small :class="{ 'input-status-saved': row.confirmedSales }">
+                  {{ row.confirmedSales ? '入力済み' : '未入力' }}
+                </small>
+              </label>
+              <strong class="numeric-cell">{{
+                formatAchievement(row.confirmedAchievement)
+              }}</strong>
+            </div>
+            <div class="facility-sales-row facility-sales-total" role="row">
+              <strong>全施設合計</strong>
+              <strong class="numeric-cell">{{
+                yenToThousandYenLabel(monthlyDashboard?.summary.actualSalesYen ?? 0)
+              }}</strong>
+              <strong class="numeric-cell">{{
+                yenToThousandYenLabel(monthlyDashboard?.summary.targetSalesYen ?? 0)
+              }}</strong>
+              <strong class="numeric-cell">{{
+                monthlyDashboard?.confirmedSalesYen === null
+                  ? '－'
+                  : yenToThousandYenLabel(monthlyDashboard?.confirmedSalesYen ?? 0)
+              }}</strong>
+              <strong class="numeric-cell">{{
+                formatAchievement(monthlyDashboard?.confirmedAchievement ?? null)
+              }}</strong>
+            </div>
+          </div>
         </section>
 
         <div class="facility-tabs" aria-label="施設選択">

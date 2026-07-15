@@ -95,7 +95,7 @@ export class ExportService {
     ];
 
     dashboard.facilityRows.forEach((row) => {
-      rows.push(['施設別', row.facilityName, ...estimatedSummaryCells(row)]);
+      rows.push(['施設別', row.facilityName, ...facilitySummaryCells(row)]);
     });
 
     dashboard.nursingCategoryRows.forEach((row) => {
@@ -135,17 +135,32 @@ async function writeCsvWithDialog(
 }
 
 function overallSummaryCells(dashboard: MonthlyDashboard): string[] {
-  const confirmedSalesYen = dashboard.confirmedSales?.confirmedSalesYen;
+  const confirmedSalesYen = dashboard.confirmedSalesYen;
   const confirmedAchievement = dashboard.confirmedAchievement;
 
   return [
     yenToThousandYenLabel(dashboard.summary.targetSalesYen),
     yenToThousandYenLabel(dashboard.summary.actualSalesYen),
-    confirmedSalesYen === undefined ? '' : yenToThousandYenLabel(confirmedSalesYen),
+    confirmedSalesYen === null ? '' : yenToThousandYenLabel(confirmedSalesYen),
     achievementLabel(dashboard.summary.achievement.ratePercent),
     confirmedAchievement ? achievementLabel(confirmedAchievement.ratePercent) : '',
     yenToThousandYenLabel(Math.abs(dashboard.summary.achievement.remainingYen)),
     confirmedAchievement ? yenToThousandYenLabel(Math.abs(confirmedAchievement.remainingYen)) : ''
+  ];
+}
+
+function facilitySummaryCells(row: MonthlyDashboard['facilityRows'][number]): string[] {
+  const confirmedSalesYen = row.confirmedSales?.confirmedSalesYen;
+  return [
+    yenToThousandYenLabel(row.targetSalesYen),
+    yenToThousandYenLabel(row.actualSalesYen),
+    confirmedSalesYen === undefined ? '' : yenToThousandYenLabel(confirmedSalesYen),
+    achievementLabel(row.achievement.ratePercent),
+    row.confirmedAchievement ? achievementLabel(row.confirmedAchievement.ratePercent) : '',
+    yenToThousandYenLabel(Math.abs(row.achievement.remainingYen)),
+    row.confirmedAchievement
+      ? yenToThousandYenLabel(Math.abs(row.confirmedAchievement.remainingYen))
+      : ''
   ];
 }
 
