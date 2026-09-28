@@ -3,6 +3,10 @@ import { applyEntryBilling, billingModeForCategory } from '../../shared/calculat
 import { calculateAchievement, calculateForecast } from '../../shared/calculations/dashboard.js';
 import { generateWholeMonthPeriod } from '../../shared/calculations/periods.js';
 import type {
+  AnnualDashboard,
+  AnnualDashboardSummary,
+  AnnualFacilityRow,
+  AnnualMonthlyRow,
   CalculatedEntrySummary,
   DashboardFacilityRow,
   DashboardInputStatus,
@@ -58,7 +62,22 @@ export class DashboardService {
 
   getMonthly(input: { targetMonth: string }): MonthlyDashboard {
     const targetMonth = assertMonth(input.targetMonth);
-    const periods = this.ensurePeriods(targetMonth);
+    return this.buildMonthly(targetMonth, true);
+  }
+
+  getAnnual(input: { year: number }): AnnualDashboard {
+    const year = assertYear(input.year);
+    const monthlyDashboards = Array.from({ length: 12 }, (_, monthIndex) =>
+      this.buildMonthly(`${year}-${String(monthIndex + 1).padStart(2, '0')}-01`, false)
+    );
+    const monthlyRows = monthlyDashboards.map(toAnnualMonthlyRow);
+    const facilityRows = buildAnnualFacilityRows(monthlyDashboards);
+
+    return { year, summary: toAnnualSummary(monthlyRows), monthlyRows, facilityRows };
+  }
+
+  private buildMonthly(targetMonth: string, createPeriods: boolean): MonthlyDashboard {
+    const periods = this.ensurePeriods(targetMonth, createPeriods);
     const facilities = this.facilities.list();
     const nursingCategories = this.nursingCategories.list();
     const facilityIds = new Set(facilities.map((facility) => facility.id));
@@ -187,6 +206,8 @@ export class DashboardService {
     return {
       targetMonth,
       summary: toSummary(summaryAccumulator, completedDayCount, daysInMonth),
+      targetConfigured:
+        targetRows.length > 0 || overallSalesTarget !== null || facilitySalesTargets.length > 0,
       overallSalesTarget,
       targetSalesSource,
       confirmedSales,
@@ -209,7 +230,8 @@ export class DashboardService {
           ),
           daysInMonth,
           facilityTargetMap.get(facility.id) ?? null,
-          facilityConfirmedMap.get(facility.id) ?? null
+          facilityConfirmedMap.get(facility.id) ?? null,
+          targetRows.some((target) => target.facilityId === facility.id)
         )
       ),
       nursingCategoryRows: nursingCategories.map((category) =>
@@ -231,9 +253,9 @@ export class DashboardService {
     };
   }
 
-  private ensurePeriods(targetMonth: string): MonthlyPeriod[] {
+  private ensurePeriods(targetMonth: string, createIfMissing: boolean): MonthlyPeriod[] {
     const existingPeriods = this.periods.listByMonth(targetMonth);
-    if (existingPeriods.length > 0) {
+    if (existingPeriods.length > 0 || !createIfMissing) {
       return existingPeriods;
     }
 
@@ -306,7 +328,8 @@ function toFacilityRow(
   completedDayCount: number,
   daysInMonth: number,
   facilitySalesTarget: DashboardFacilityRow['facilitySalesTarget'],
-  confirmedSales: DashboardFacilityRow['confirmedSales']
+  confirmedSales: DashboardFacilityRow['confirmedSales'],
+  detailedTargetConfigured: boolean
 ): DashboardFacilityRow {
   const summary = toSummary(accumulator, completedDayCount, daysInMonth);
   return {
@@ -315,11 +338,81 @@ function toFacilityRow(
     ...summary,
     facilitySalesTarget,
     targetSalesSource: facilitySalesTarget ? 'facility' : 'detailed_sum',
+    targetConfigured: facilitySalesTarget !== null || detailedTargetConfigured,
     confirmedSales,
     confirmedAchievement: confirmedSales
       ? calculateAchievement(summary.targetSalesYen, confirmedSales.confirmedSalesYen)
       : null
   };
+}
+
+function toAnnualMonthlyRow(dashboard: MonthlyDashboard): AnnualMonthlyRow {
+  return {
+    targetMonth: dashboard.targetMonth,
+    targetSalesYen: dashboard.targetConfigured ? dashboard.summary.targetSalesYen : null,
+    actualSalesYen: dashboard.summary.actualSalesYen,
+    confirmedSalesYen: dashboard.confirmedSalesYen,
+    confirmedAchievement: dashboard.confirmedAchievement
+  };
+}
+
+function toAnnualSummary(monthlyRows: AnnualMonthlyRow[]): AnnualDashboardSummary {
+  const targetRows = monthlyRows.filter((row) => row.targetSalesYen !== null);
+  const confirmedRows = monthlyRows.filter((row) => row.confirmedSalesYen !== null);
+  const targetSalesYen = targetRows.reduce((sum, row) => sum + (row.targetSalesYen ?? 0), 0);
+  const confirmedSalesYen = confirmedRows.reduce(
+    (sum, row) => sum + (row.confirmedSalesYen ?? 0),
+    0
+  );
+
+  return {
+    targetSalesYen,
+    targetMonthCount: targetRows.length,
+    actualSalesYen: monthlyRows.reduce((sum, row) => sum + row.actualSalesYen, 0),
+    confirmedSalesYen,
+    confirmedMonthCount: confirmedRows.length,
+    confirmedAchievement:
+      confirmedRows.length > 0 ? calculateAchievement(targetSalesYen, confirmedSalesYen) : null
+  };
+}
+
+function buildAnnualFacilityRows(monthlyDashboards: MonthlyDashboard[]): AnnualFacilityRow[] {
+  const facilityRows = new Map<number, AnnualFacilityRow>();
+
+  monthlyDashboards.forEach((dashboard) => {
+    dashboard.facilityRows.forEach((row) => {
+      const annual = facilityRows.get(row.facilityId) ?? {
+        facilityId: row.facilityId,
+        facilityName: row.facilityName,
+        targetSalesYen: null,
+        targetMonthCount: 0,
+        actualSalesYen: 0,
+        confirmedSalesYen: null,
+        confirmedMonthCount: 0,
+        confirmedAchievement: null
+      };
+
+      if (row.targetConfigured) {
+        annual.targetSalesYen = (annual.targetSalesYen ?? 0) + row.targetSalesYen;
+        annual.targetMonthCount += 1;
+      }
+      annual.actualSalesYen += row.actualSalesYen;
+      if (row.confirmedSales) {
+        annual.confirmedSalesYen =
+          (annual.confirmedSalesYen ?? 0) + row.confirmedSales.confirmedSalesYen;
+        annual.confirmedMonthCount += 1;
+      }
+      facilityRows.set(row.facilityId, annual);
+    });
+  });
+
+  return [...facilityRows.values()].map((row) => ({
+    ...row,
+    confirmedAchievement:
+      row.confirmedMonthCount > 0 && row.targetSalesYen !== null
+        ? calculateAchievement(row.targetSalesYen, row.confirmedSalesYen ?? 0)
+        : null
+  }));
 }
 
 function toCategoryRow(
@@ -387,4 +480,11 @@ function getDaysInMonth(targetMonth: string): number {
   const year = Number.parseInt(targetMonth.slice(0, 4), 10);
   const month = Number.parseInt(targetMonth.slice(5, 7), 10);
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function assertYear(year: number): number {
+  if (!Number.isInteger(year) || year < 1000 || year > 9999) {
+    throw new Error('YEAR_INVALID');
+  }
+  return year;
 }

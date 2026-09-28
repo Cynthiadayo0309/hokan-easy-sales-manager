@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 
 import BackupView from '../views/BackupView.vue';
+import AnnualView from '../views/AnnualView.vue';
 import FacilityView from '../views/FacilityView.vue';
 import HistoryView from '../views/HistoryView.vue';
 import HomeView from '../views/HomeView.vue';
@@ -12,6 +13,7 @@ export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', name: 'home', component: HomeView },
+    { path: '/annual', name: 'annual', component: AnnualView },
     { path: '/initial-setup', name: 'initial-setup', component: InitialSetupView },
     { path: '/weekly-input', name: 'weekly-input', component: WeeklyInputView },
     { path: '/facility', name: 'facility', component: FacilityView },

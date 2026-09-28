@@ -11,6 +11,7 @@ const appStatus = useAppStatusStore();
 
 const screenTitleByRouteName: Record<string, string> = {
   home: 'ホーム',
+  annual: '年間一覧',
   'initial-setup': '初期設定',
   'weekly-input': '月次入力',
   facility: '施設別',
@@ -68,6 +69,7 @@ onMounted(() => {
 
       <nav class="nav-list">
         <RouterLink to="/">ホーム</RouterLink>
+        <RouterLink to="/annual">年間一覧</RouterLink>
         <RouterLink to="/weekly-input">月次入力</RouterLink>
         <RouterLink to="/facility">施設別</RouterLink>
         <RouterLink to="/history">過去月</RouterLink>

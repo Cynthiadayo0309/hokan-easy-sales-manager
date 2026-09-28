@@ -29,6 +29,7 @@ import { FacilityService, SetupService } from '../services/setup-service.js';
 type FacilityListInput = { includeInactive?: boolean };
 type FacilityIdInput = { id: number };
 type MonthInput = { targetMonth: string };
+type YearInput = { year: number };
 type CloseMonthInput = { targetMonth: string; acknowledgeWarnings: boolean };
 
 export function registerDataIpcHandlers(dbManager: DatabaseManager, userDataPath: string): void {
@@ -106,6 +107,9 @@ export function registerDataIpcHandlers(dbManager: DatabaseManager, userDataPath
   );
   handleDataIpc(IPC_CHANNELS.dashboardGetMonthly, (input) =>
     new DashboardService(db()).getMonthly(input as MonthInput)
+  );
+  handleDataIpc(IPC_CHANNELS.dashboardGetAnnual, (input) =>
+    new DashboardService(db()).getAnnual(input as YearInput)
   );
   handleDataIpc(IPC_CHANNELS.closingsGetStatus, (input) => {
     const monthInput = input as MonthInput;

@@ -32,6 +32,7 @@ const IPC_CHANNELS = {
   entriesGetStatusByMonth: 'entries:get-status-by-month',
   entriesCopyPrevious: 'entries:copy-previous',
   dashboardGetMonthly: 'dashboard:get-monthly',
+  dashboardGetAnnual: 'dashboard:get-annual',
   closingsGetStatus: 'closings:get-status',
   closingsCloseMonth: 'closings:close-month',
   closingsReopenMonth: 'closings:reopen-month',
@@ -89,7 +90,8 @@ const api: HokanAppApi = {
     copyPrevious: (input) => ipcRenderer.invoke(IPC_CHANNELS.entriesCopyPrevious, input)
   },
   dashboard: {
-    getMonthly: (input) => ipcRenderer.invoke(IPC_CHANNELS.dashboardGetMonthly, input)
+    getMonthly: (input) => ipcRenderer.invoke(IPC_CHANNELS.dashboardGetMonthly, input),
+    getAnnual: (input) => ipcRenderer.invoke(IPC_CHANNELS.dashboardGetAnnual, input)
   },
   closings: {
     getStatus: (input) => ipcRenderer.invoke(IPC_CHANNELS.closingsGetStatus, input),

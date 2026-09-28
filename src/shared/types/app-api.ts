@@ -184,6 +184,7 @@ export interface DashboardFacilityRow extends DashboardSummary {
   facilityName: string;
   facilitySalesTarget: MonthlyFacilitySalesTarget | null;
   targetSalesSource: 'facility' | 'detailed_sum';
+  targetConfigured: boolean;
   confirmedSales: MonthlyFacilityConfirmedSales | null;
   confirmedAchievement: AchievementResult | null;
 }
@@ -213,6 +214,7 @@ export interface DashboardInputStatus {
 export interface MonthlyDashboard {
   targetMonth: string;
   summary: DashboardSummary;
+  targetConfigured: boolean;
   overallSalesTarget: MonthlyOverallSalesTarget | null;
   targetSalesSource: 'facility_sum' | 'overall' | 'detailed_sum';
   confirmedSales: MonthlyConfirmedSales | null;
@@ -225,6 +227,41 @@ export interface MonthlyDashboard {
   nursingCategoryRows: DashboardNursingCategoryRow[];
   periodRows: DashboardPeriodRow[];
   inputStatus: DashboardInputStatus;
+}
+
+export interface AnnualDashboardSummary {
+  targetSalesYen: number;
+  targetMonthCount: number;
+  actualSalesYen: number;
+  confirmedSalesYen: number;
+  confirmedMonthCount: number;
+  confirmedAchievement: AchievementResult | null;
+}
+
+export interface AnnualMonthlyRow {
+  targetMonth: string;
+  targetSalesYen: number | null;
+  actualSalesYen: number;
+  confirmedSalesYen: number | null;
+  confirmedAchievement: AchievementResult | null;
+}
+
+export interface AnnualFacilityRow {
+  facilityId: number;
+  facilityName: string;
+  targetSalesYen: number | null;
+  targetMonthCount: number;
+  actualSalesYen: number;
+  confirmedSalesYen: number | null;
+  confirmedMonthCount: number;
+  confirmedAchievement: AchievementResult | null;
+}
+
+export interface AnnualDashboard {
+  year: number;
+  summary: AnnualDashboardSummary;
+  monthlyRows: AnnualMonthlyRow[];
+  facilityRows: AnnualFacilityRow[];
 }
 
 export type MonthClosingState = 'open' | 'closed';
@@ -457,6 +494,7 @@ export interface HokanAppApi {
   };
   dashboard: {
     getMonthly(input: { targetMonth: string }): Promise<MonthlyDashboard>;
+    getAnnual(input: { year: number }): Promise<AnnualDashboard>;
   };
   closings: {
     getStatus(input: { targetMonth: string }): Promise<MonthClosingStatus>;
@@ -504,6 +542,7 @@ export const IPC_CHANNELS = {
   entriesGetStatusByMonth: 'entries:get-status-by-month',
   entriesCopyPrevious: 'entries:copy-previous',
   dashboardGetMonthly: 'dashboard:get-monthly',
+  dashboardGetAnnual: 'dashboard:get-annual',
   closingsGetStatus: 'closings:get-status',
   closingsCloseMonth: 'closings:close-month',
   closingsReopenMonth: 'closings:reopen-month',

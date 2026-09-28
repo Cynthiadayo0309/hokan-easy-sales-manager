@@ -1131,6 +1131,74 @@ describe('monthly dashboard service', () => {
 
     db.close();
   });
+
+  it('builds an annual dashboard without creating missing monthly periods', () => {
+    const db = createTestDatabase();
+    const status = saveCommonRatesForEntry(db);
+    const periodService = new PeriodService(db);
+    const entryService = new EntryService(db);
+    const facilitySalesService = new FacilitySalesService(db);
+    const dashboardService = new DashboardService(db);
+    const [period] = periodService.listByMonth({ targetMonth: '2026-07-01' });
+    const [facility] = status.facilities;
+    const [category] = status.nursingCategories;
+
+    facilitySalesService.saveMonthly({
+      targetMonth: '2026-07-01',
+      facilities: status.facilities.map((targetFacility) => ({
+        facilityId: targetFacility.id,
+        targetSalesThousandYen: '100',
+        confirmedSalesThousandYen: '90'
+      }))
+    });
+    entryService.complete({
+      targetMonth: '2026-07-01',
+      monthlyPeriodId: period.id,
+      facilityId: facility.id,
+      details: buildPeopleCountDetails(status.nursingCategories, category.id, 1)
+    });
+    const periodCountBefore = Number(
+      (db.prepare('SELECT COUNT(*) AS count FROM monthly_periods').get() as { count: number }).count
+    );
+
+    const annual = dashboardService.getAnnual({ year: 2026 });
+
+    expect(annual.monthlyRows).toHaveLength(12);
+    expect(annual.monthlyRows[0]).toMatchObject({
+      targetMonth: '2026-01-01',
+      targetSalesYen: null,
+      confirmedSalesYen: null
+    });
+    expect(annual.monthlyRows[6]).toMatchObject({
+      targetSalesYen: 500_000,
+      actualSalesYen: 8_500,
+      confirmedSalesYen: 450_000
+    });
+    expect(annual.summary).toMatchObject({
+      targetSalesYen: 500_000,
+      targetMonthCount: 1,
+      actualSalesYen: 8_500,
+      confirmedSalesYen: 450_000,
+      confirmedMonthCount: 1,
+      confirmedAchievement: { ratePercent: 90 }
+    });
+    expect(annual.facilityRows.find((row) => row.facilityId === facility.id)).toMatchObject({
+      targetSalesYen: 100_000,
+      targetMonthCount: 1,
+      actualSalesYen: 8_500,
+      confirmedSalesYen: 90_000,
+      confirmedMonthCount: 1,
+      confirmedAchievement: { ratePercent: 90 }
+    });
+    expect(
+      Number(
+        (db.prepare('SELECT COUNT(*) AS count FROM monthly_periods').get() as { count: number })
+          .count
+      )
+    ).toBe(periodCountBefore);
+
+    db.close();
+  });
 });
 
 describe('confirmed sales service', () => {
