@@ -22,7 +22,13 @@ const errorMessage = ref<string | null>(null);
 const { clearSaveFeedback, saveFeedback, showSaveFeedback } = useSaveFeedback();
 const selectedMonth = ref(new Date().toISOString().slice(0, 7));
 const rateValidFrom = computed(() => `${selectedMonth.value}-01`);
+const rateFacilityId = ref<number | null>(null);
+const rateScopeName = computed(
+  () =>
+    facilities.value.find((facility) => facility.id === rateFacilityId.value)?.name ?? '全施設共通'
+);
 const effectiveRates = ref<RateSetting[]>([]);
+const ratesReady = ref(false);
 const rateInputs = ref<Record<string, string>>({});
 const targetInputs = ref<Record<string, TargetFormValue>>({});
 
@@ -61,8 +67,13 @@ function parseThousandTextToYen(value: string | number | undefined): number | nu
   return whole * 1000 + decimal * 100;
 }
 
-function getRateYen(categoryId: number): number {
-  return effectiveRates.value.find((rate) => rate.nursingCategoryId === categoryId)?.amountYen ?? 0;
+function getRateYen(facilityId: number | null, categoryId: number): number {
+  const rates = effectiveRates.value.filter((rate) => rate.nursingCategoryId === categoryId);
+  return (
+    rates.find((rate) => rate.facilityId === facilityId)?.amountYen ??
+    rates.find((rate) => rate.facilityId === null)?.amountYen ??
+    0
+  );
 }
 
 function getTargetValue(facilityId: number, categoryId: number): TargetFormValue | undefined {
@@ -80,7 +91,9 @@ function updateTargetSalesFromPeople(facilityId: number, categoryId: number): vo
     return;
   }
 
-  value.targetSalesThousandYen = yenToThousandText(targetPeopleCount * getRateYen(categoryId));
+  value.targetSalesThousandYen = yenToThousandText(
+    targetPeopleCount * getRateYen(facilityId, categoryId)
+  );
 }
 
 function formatTargetSalesInput(facilityId: number, categoryId: number): void {
@@ -114,11 +127,12 @@ function setError(text: string): void {
   message.value = null;
 }
 
-function applyRateInputs(rates: RateSetting[]): void {
+function applyRateInputs(): void {
   const nextInputs: Record<string, string> = {};
   nursingCategories.value.forEach((category) => {
-    const rate = rates.find((item) => item.nursingCategoryId === category.id);
-    nextInputs[rateKey(category.id)] = rate ? yenToThousandText(rate.amountYen) : '0';
+    nextInputs[rateKey(category.id)] = yenToThousandText(
+      getRateYen(rateFacilityId.value, category.id)
+    );
   });
   rateInputs.value = nextInputs;
 }
@@ -146,9 +160,20 @@ async function loadFacilities(): Promise<void> {
 }
 
 async function loadRates(): Promise<void> {
-  const rates = await window.hokanApp.rates.list({ validOn: rateValidFrom.value });
-  effectiveRates.value = rates;
-  applyRateInputs(rates);
+  ratesReady.value = false;
+  const rates = await Promise.all(
+    [null, ...facilities.value.map((facility) => facility.id)].map((facilityId) =>
+      window.hokanApp.rates.list({ validOn: rateValidFrom.value, facilityId })
+    )
+  );
+  effectiveRates.value = rates.flatMap((scopeRates, index) =>
+    scopeRates.filter((rate) => index === 0 || rate.facilityId !== null)
+  );
+  if (!facilities.value.some((facility) => facility.id === rateFacilityId.value)) {
+    rateFacilityId.value = null;
+  }
+  applyRateInputs();
+  ratesReady.value = true;
 }
 
 async function loadTargets(): Promise<void> {
@@ -210,6 +235,7 @@ async function addFacility(): Promise<void> {
     showSaveFeedback('施設');
     setMessage('施設を追加しました。');
     facilities.value = await window.hokanApp.facilities.list();
+    await loadRates();
     await loadTargets();
   } catch {
     clearSaveFeedback();
@@ -232,6 +258,7 @@ async function restoreDefaultFacilities(): Promise<void> {
     facilities.value = await window.hokanApp.facilities.restoreDefaults();
     showSaveFeedback('初期施設');
     setMessage('初期施設を復旧しました。施設名を必要に応じて変更してください。');
+    await loadRates();
     await loadTargets();
   } catch {
     clearSaveFeedback();
@@ -258,6 +285,7 @@ async function deactivateFacility(facility: Facility): Promise<void> {
     showSaveFeedback(`${facility.name}の施設設定`);
     setMessage('施設を停止しました。');
     await loadFacilities();
+    await loadRates();
     await loadTargets();
   } catch {
     clearSaveFeedback();
@@ -268,7 +296,7 @@ async function deactivateFacility(facility: Facility): Promise<void> {
 }
 
 async function saveRates(): Promise<void> {
-  if (saving.value) {
+  if (saving.value || loading.value || !ratesReady.value) {
     return;
   }
 
@@ -277,13 +305,14 @@ async function saveRates(): Promise<void> {
   try {
     await window.hokanApp.rates.save({
       validFrom: rateValidFrom.value,
+      facilityId: rateFacilityId.value,
       rates: nursingCategories.value.map((category) => ({
         nursingCategoryId: category.id,
         amountThousandYen: rateInputs.value[rateKey(category.id)] ?? '0'
       }))
     });
-    showSaveFeedback('売上単価');
-    setMessage('売上単価を保存しました。');
+    showSaveFeedback(`${rateScopeName.value}の売上単価`);
+    setMessage(`${rateScopeName.value}の売上単価を保存しました。`);
     await loadRates();
   } catch {
     clearSaveFeedback();
@@ -356,8 +385,15 @@ async function copyPreviousMonthTargets(): Promise<void> {
 }
 
 async function reloadMonthSettings(): Promise<void> {
-  await loadRates();
-  await loadTargets();
+  loading.value = true;
+  try {
+    await loadRates();
+    await loadTargets();
+  } catch {
+    setError('設定を読み込めませんでした。対象年月を選び直してください。');
+  } finally {
+    loading.value = false;
+  }
 }
 
 onMounted(() => {
@@ -371,7 +407,7 @@ onMounted(() => {
       <p class="eyebrow">目標・単価設定</p>
       <h2>設定を変更する</h2>
       <p>
-        施設名、区分ごとの売上単価、施設・区分別目標を設定します。月全体の売上目標は「月次入力」で設定します。
+        施設名、施設・区分ごとの売上単価、施設・区分別目標を設定します。月全体の売上目標は「月次入力」で設定します。
       </p>
     </div>
 
@@ -467,11 +503,34 @@ onMounted(() => {
         </div>
         <label class="month-field">
           <span>適用開始月</span>
-          <input v-model="selectedMonth" type="month" @change="reloadMonthSettings" />
+          <input
+            v-model="selectedMonth"
+            :disabled="loading || saving"
+            type="month"
+            @change="reloadMonthSettings"
+          />
         </label>
       </div>
 
-      <div class="rate-table" role="table" aria-label="売上単価">
+      <label class="month-field">
+        <span>単価を設定する施設</span>
+        <select
+          v-model="rateFacilityId"
+          :disabled="loading || saving || !ratesReady"
+          @change="applyRateInputs"
+        >
+          <option :value="null">全施設共通</option>
+          <option v-for="facility in facilities" :key="facility.id" :value="facility.id">
+            {{ facility.name }}
+          </option>
+        </select>
+      </label>
+      <p class="card-label">
+        施設別の設定がない場合は共通単価を使います。施設を選んで保存すると、その施設の単価が優先されます。
+        保存済みの実績は自動では変わりません。実績を再保存すると、設定した単価で計算します。
+      </p>
+
+      <div class="rate-table" role="table" :aria-label="`${rateScopeName}の売上単価`">
         <div class="rate-row rate-head" role="row">
           <span>区分</span>
           <span>単価</span>
@@ -479,7 +538,13 @@ onMounted(() => {
         <div v-for="category in nursingCategories" :key="category.id" class="rate-row" role="row">
           <strong>{{ category.name }}</strong>
           <label class="rate-input">
-            <input v-model="rateInputs[rateKey(category.id)]" inputmode="decimal" type="text" />
+            <input
+              v-model="rateInputs[rateKey(category.id)]"
+              :aria-label="`${rateScopeName} ${category.name}の単価（千円）`"
+              :disabled="loading || saving || !ratesReady"
+              inputmode="decimal"
+              type="text"
+            />
             <span>千円</span>
           </label>
         </div>
@@ -487,7 +552,7 @@ onMounted(() => {
 
       <button
         class="primary-button section-action"
-        :disabled="saving"
+        :disabled="loading || saving || !ratesReady"
         type="button"
         @click="saveRates"
       >

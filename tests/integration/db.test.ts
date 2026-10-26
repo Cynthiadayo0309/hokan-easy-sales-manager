@@ -1139,12 +1139,12 @@ describe('monthly dashboard service', () => {
     const entryService = new EntryService(db);
     const facilitySalesService = new FacilitySalesService(db);
     const dashboardService = new DashboardService(db);
-    const [period] = periodService.listByMonth({ targetMonth: '2026-07-01' });
+    const [period] = periodService.listByMonth({ targetMonth: '2027-07-01' });
     const [facility] = status.facilities;
     const [category] = status.nursingCategories;
 
     facilitySalesService.saveMonthly({
-      targetMonth: '2026-07-01',
+      targetMonth: '2027-07-01',
       facilities: status.facilities.map((targetFacility) => ({
         facilityId: targetFacility.id,
         targetSalesThousandYen: '100',
@@ -1152,7 +1152,7 @@ describe('monthly dashboard service', () => {
       }))
     });
     entryService.complete({
-      targetMonth: '2026-07-01',
+      targetMonth: '2027-07-01',
       monthlyPeriodId: period.id,
       facilityId: facility.id,
       details: buildPeopleCountDetails(status.nursingCategories, category.id, 1)
@@ -1163,13 +1163,26 @@ describe('monthly dashboard service', () => {
 
     const annual = dashboardService.getAnnual({ year: 2026 });
 
-    expect(annual.monthlyRows).toHaveLength(12);
+    expect(annual.monthlyRows.map((row) => row.targetMonth)).toEqual([
+      '2026-09-01',
+      '2026-10-01',
+      '2026-11-01',
+      '2026-12-01',
+      '2027-01-01',
+      '2027-02-01',
+      '2027-03-01',
+      '2027-04-01',
+      '2027-05-01',
+      '2027-06-01',
+      '2027-07-01',
+      '2027-08-01'
+    ]);
     expect(annual.monthlyRows[0]).toMatchObject({
-      targetMonth: '2026-01-01',
+      targetMonth: '2026-09-01',
       targetSalesYen: null,
       confirmedSalesYen: null
     });
-    expect(annual.monthlyRows[6]).toMatchObject({
+    expect(annual.monthlyRows[10]).toMatchObject({
       targetSalesYen: 500_000,
       actualSalesYen: 8_500,
       confirmedSalesYen: 450_000
@@ -1197,6 +1210,57 @@ describe('monthly dashboard service', () => {
       )
     ).toBe(periodCountBefore);
 
+    db.close();
+  });
+
+  it('includes September through next August in annual totals and excludes adjacent months', () => {
+    const db = createTestDatabase();
+    const status = saveCommonRatesForEntry(db);
+    const periodService = new PeriodService(db);
+    const entryService = new EntryService(db);
+    const facilitySalesService = new FacilitySalesService(db);
+    const dashboardService = new DashboardService(db);
+    const [facility] = status.facilities;
+    const [category] = status.nursingCategories;
+
+    ['2026-08-01', '2026-09-01', '2026-12-01', '2027-01-01', '2027-08-01', '2027-09-01'].forEach(
+      (targetMonth, index) => {
+        const [period] = periodService.listByMonth({ targetMonth });
+        facilitySalesService.saveMonthly({
+          targetMonth,
+          facilities: status.facilities.map((targetFacility) => ({
+            facilityId: targetFacility.id,
+            targetSalesThousandYen: '100',
+            confirmedSalesThousandYen: '90'
+          }))
+        });
+        entryService.complete({
+          targetMonth,
+          monthlyPeriodId: period.id,
+          facilityId: facility.id,
+          details: buildPeopleCountDetails(status.nursingCategories, category.id, index + 1)
+        });
+      }
+    );
+
+    const annual = dashboardService.getAnnual({ year: 2026 });
+    expect(annual.summary).toMatchObject({
+      targetSalesYen: 2_000_000,
+      targetMonthCount: 4,
+      actualSalesYen: 119_000,
+      confirmedSalesYen: 1_800_000,
+      confirmedMonthCount: 4,
+      confirmedAchievement: { ratePercent: 90 }
+    });
+    expect(annual.facilityRows.find((row) => row.facilityId === facility.id)).toMatchObject({
+      targetSalesYen: 400_000,
+      targetMonthCount: 4,
+      actualSalesYen: 119_000,
+      confirmedSalesYen: 360_000,
+      confirmedMonthCount: 4,
+      confirmedAchievement: { ratePercent: 90 }
+    });
+    expect(() => dashboardService.getAnnual({ year: 9999 })).toThrow('YEAR_INVALID');
     db.close();
   });
 });

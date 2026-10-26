@@ -220,6 +220,7 @@ onMounted(async () => {
       <div v-else-if="step === 3" class="setup-panel" :aria-busy="loading || saving">
         <h3>売上単価を入力してください</h3>
         <p>単位は千円です。例: 8.5千円は8,500円として保存します。</p>
+        <p>施設別に異なる単価は、初期設定後に「目標・単価設定」で設定できます。</p>
 
         <div class="rate-table" role="table" aria-label="売上単価">
           <div class="rate-row rate-head" role="row">

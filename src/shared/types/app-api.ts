@@ -258,6 +258,7 @@ export interface AnnualFacilityRow {
 }
 
 export interface AnnualDashboard {
+  /** 年度の開始年（9月から翌年8月まで）。 */
   year: number;
   summary: AnnualDashboardSummary;
   monthlyRows: AnnualMonthlyRow[];
@@ -373,6 +374,7 @@ export interface SaveFacilityInput {
 
 export interface SaveRateSettingsInput {
   validFrom: string;
+  facilityId?: number | null;
   rates: Array<{
     nursingCategoryId: number;
     amountThousandYen: string | number;
@@ -462,7 +464,7 @@ export interface HokanAppApi {
     deactivate(input: { id: number }): Promise<Facility>;
   };
   rates: {
-    list(input: { validOn?: string }): Promise<RateSetting[]>;
+    list(input: { validOn?: string; facilityId?: number | null }): Promise<RateSetting[]>;
     save(input: SaveRateSettingsInput): Promise<RateSetting[]>;
   };
   targets: {

@@ -23,18 +23,19 @@ export class RateService {
     this.nursingCategories = new NursingCategoryRepository(db);
   }
 
-  list(input?: { validOn?: string }) {
+  list(input?: { validOn?: string; facilityId?: number | null }) {
     const validOn = input?.validOn ? assertIsoDate(input.validOn) : undefined;
-    return this.rates.listEffectiveCommon(validOn);
+    return this.rates.listEffective(validOn, this.validateFacilityId(input?.facilityId));
   }
 
   save(input: SaveRateSettingsInput) {
     const validFrom = assertIsoDate(input.validFrom);
+    const facilityId = this.validateFacilityId(input.facilityId);
     const categories = this.nursingCategories.list();
     const categoryIds = new Set(categories.map((category) => category.id));
     const expectedRateCount = categories.length;
 
-    if (input.rates.length !== expectedRateCount) {
+    if (!Array.isArray(input.rates) || input.rates.length !== expectedRateCount) {
       throw new Error('RATE_SETTINGS_INCOMPLETE');
     }
 
@@ -54,7 +55,19 @@ export class RateService {
       };
     });
 
-    return this.rates.saveCommonRates(validFrom, rates);
+    return this.rates.saveRates(validFrom, rates, facilityId);
+  }
+
+  private validateFacilityId(value: number | null | undefined): number | null {
+    if (value == null) {
+      return null;
+    }
+    const facilityId = assertPositiveId(value);
+    const facility = new FacilityRepository(this.db).getById(facilityId);
+    if (!facility || !facility.isActive) {
+      throw new Error('FACILITY_NOT_ACTIVE');
+    }
+    return facilityId;
   }
 }
 

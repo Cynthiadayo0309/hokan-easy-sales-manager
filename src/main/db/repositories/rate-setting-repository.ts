@@ -2,7 +2,7 @@ import type { RateSetting } from '../../../shared/types/app-api.js';
 import type { AppDatabase } from '../connection.js';
 import { mapRateSetting, type RateSettingRow } from '../row-mappers.js';
 
-interface CommonRateInput {
+interface RateInput {
   nursingCategoryId: number;
   amountYen: number;
 }
@@ -36,7 +36,7 @@ export class RateSettingRepository {
       .map((row) => mapRateSetting(row as RateSettingRow));
   }
 
-  listEffectiveCommon(validOn?: string): RateSetting[] {
+  listEffective(validOn?: string, facilityId: number | null = null): RateSetting[] {
     const rows = this.db
       .prepare(
         `
@@ -52,27 +52,32 @@ export class RateSettingRepository {
             current.updated_at
           FROM rate_settings current
           INNER JOIN (
-            SELECT nursing_category_id, visit_frequency, MAX(valid_from) AS valid_from
+            SELECT facility_id, nursing_category_id, visit_frequency, MAX(valid_from) AS valid_from
             FROM rate_settings
-            WHERE facility_id IS NULL
+            WHERE (facility_id IS NULL OR facility_id = ?)
               AND visit_frequency = 1
               AND (? IS NULL OR valid_from <= ?)
               AND (valid_to IS NULL OR ? IS NULL OR valid_to >= ?)
-            GROUP BY nursing_category_id, visit_frequency
+            GROUP BY facility_id, nursing_category_id, visit_frequency
           ) latest
-            ON latest.nursing_category_id = current.nursing_category_id
+            ON latest.facility_id IS current.facility_id
+            AND latest.nursing_category_id = current.nursing_category_id
             AND latest.visit_frequency = current.visit_frequency
             AND latest.valid_from = current.valid_from
-          WHERE current.facility_id IS NULL
-          ORDER BY current.nursing_category_id, current.visit_frequency
+          ORDER BY current.nursing_category_id, current.facility_id
         `
       )
-      .all(validOn ?? null, validOn ?? null, validOn ?? null, validOn ?? null);
+      .all(facilityId, validOn ?? null, validOn ?? null, validOn ?? null, validOn ?? null);
 
-    return rows.map((row) => mapRateSetting(row as RateSettingRow));
+    const effectiveRates = new Map<number, RateSetting>();
+    rows.forEach((row) => {
+      const rate = mapRateSetting(row as RateSettingRow);
+      effectiveRates.set(rate.nursingCategoryId, rate);
+    });
+    return [...effectiveRates.values()];
   }
 
-  replaceInitialCommonRates(rates: CommonRateInput[]): void {
+  replaceInitialCommonRates(rates: RateInput[]): void {
     const now = new Date().toISOString();
     this.db
       .prepare('DELETE FROM rate_settings WHERE facility_id IS NULL AND valid_from = ?')
@@ -93,22 +98,20 @@ export class RateSettingRepository {
     `);
 
     rates.forEach((rate) => {
-      insertRate.run(
-        rate.nursingCategoryId,
-        rate.amountYen,
-        initialValidFrom,
-        now,
-        now
-      );
+      insertRate.run(rate.nursingCategoryId, rate.amountYen, initialValidFrom, now, now);
     });
   }
 
-  saveCommonRates(validFrom: string, rates: CommonRateInput[]): RateSetting[] {
+  saveRates(
+    validFrom: string,
+    rates: RateInput[],
+    facilityId: number | null = null
+  ): RateSetting[] {
     const now = new Date().toISOString();
     const updateRate = this.db.prepare(`
       UPDATE rate_settings
       SET amount_yen = ?, updated_at = ?
-      WHERE facility_id IS NULL
+      WHERE facility_id IS ?
         AND nursing_category_id = ?
         AND visit_frequency = 1
         AND valid_from = ?
@@ -124,7 +127,7 @@ export class RateSettingRepository {
         created_at,
         updated_at
       )
-      VALUES (NULL, ?, 1, ?, ?, NULL, ?, ?)
+      VALUES (?, ?, 1, ?, ?, NULL, ?, ?)
     `);
 
     this.db.transaction(() => {
@@ -132,22 +135,17 @@ export class RateSettingRepository {
         const result = updateRate.run(
           rate.amountYen,
           now,
+          facilityId,
           rate.nursingCategoryId,
           validFrom
         );
 
         if (result.changes === 0) {
-          insertRate.run(
-            rate.nursingCategoryId,
-            rate.amountYen,
-            validFrom,
-            now,
-            now
-          );
+          insertRate.run(facilityId, rate.nursingCategoryId, rate.amountYen, validFrom, now, now);
         }
       });
     })();
 
-    return this.listEffectiveCommon(validFrom);
+    return this.listEffective(validFrom, facilityId);
   }
 }

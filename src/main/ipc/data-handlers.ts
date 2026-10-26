@@ -55,7 +55,9 @@ export function registerDataIpcHandlers(dbManager: DatabaseManager, userDataPath
     new FacilityService(db()).deactivate(input as FacilityIdInput)
   );
   handleDataIpc(IPC_CHANNELS.ratesList, (input) =>
-    new RateService(db()).list(input as { validOn?: string } | undefined)
+    new RateService(db()).list(
+      input as { validOn?: string; facilityId?: number | null } | undefined
+    )
   );
   handleDataIpc(IPC_CHANNELS.ratesSave, (input) =>
     new RateService(db()).save(input as SaveRateSettingsInput)

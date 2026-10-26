@@ -4,16 +4,22 @@ import { computed, onMounted, ref } from 'vue';
 import type { AchievementResult, AnnualDashboard } from '@shared/types/app-api';
 import { formatMoneyCompact } from '../utils/display';
 
-const selectedYear = ref(new Date().getFullYear());
+const today = new Date();
+const selectedYear = ref(today.getFullYear() - (today.getMonth() < 8 ? 1 : 0));
 const dashboard = ref<AnnualDashboard | null>(null);
 const loading = ref(true);
 const errorMessage = ref<string | null>(null);
 
-const yearLabel = computed(() => `${selectedYear.value}年`);
+const yearLabel = computed(() => `${selectedYear.value}年度`);
+const periodLabel = computed(() => `${selectedYear.value}年9月〜${selectedYear.value + 1}年8月`);
 
 async function loadAnnualDashboard(): Promise<void> {
-  if (!Number.isInteger(selectedYear.value) || selectedYear.value < 1000 || selectedYear.value > 9999) {
-    errorMessage.value = '西暦4桁の年を入力してください。';
+  if (
+    !Number.isInteger(selectedYear.value) ||
+    selectedYear.value < 1000 ||
+    selectedYear.value > 9998
+  ) {
+    errorMessage.value = '年度の開始年を1000〜9998の範囲で入力してください。';
     return;
   }
 
@@ -30,7 +36,9 @@ async function loadAnnualDashboard(): Promise<void> {
 }
 
 function formatAchievement(achievement: AchievementResult | null): string {
-  return achievement?.ratePercent === null || !achievement ? '未入力' : `${achievement.ratePercent.toFixed(1)}%`;
+  return achievement?.ratePercent === null || !achievement
+    ? '未入力'
+    : `${achievement.ratePercent.toFixed(1)}%`;
 }
 
 function formatOptionalMoney(amountYen: number | null): string {
@@ -54,12 +62,20 @@ onMounted(() => {
 
     <section class="panel dashboard-toolbar" :aria-busy="loading">
       <div>
-        <p class="card-label">対象年</p>
+        <p class="card-label">対象年度</p>
         <h2>{{ yearLabel }}</h2>
+        <p class="card-label">{{ periodLabel }}</p>
       </div>
       <label class="month-field compact">
-        <span>年を選ぶ</span>
-        <input v-model.number="selectedYear" type="number" min="1000" max="9999" step="1" @change="loadAnnualDashboard" />
+        <span>開始年を選ぶ（9月始まり）</span>
+        <input
+          v-model.number="selectedYear"
+          type="number"
+          min="1000"
+          max="9998"
+          step="1"
+          @change="loadAnnualDashboard"
+        />
       </label>
     </section>
 
@@ -69,8 +85,14 @@ onMounted(() => {
       <div class="summary-grid dashboard-summary-grid">
         <section class="summary-card">
           <p class="card-label">年間目標</p>
-          <strong>{{ dashboard.summary.targetMonthCount ? formatMoneyCompact(dashboard.summary.targetSalesYen) : '未入力' }}</strong>
-          <small class="card-note">入力済み {{ dashboard.summary.targetMonthCount }} / 12か月</small>
+          <strong>{{
+            dashboard.summary.targetMonthCount
+              ? formatMoneyCompact(dashboard.summary.targetSalesYen)
+              : '未入力'
+          }}</strong>
+          <small class="card-note"
+            >入力済み {{ dashboard.summary.targetMonthCount }} / 12か月</small
+          >
         </section>
         <section class="summary-card">
           <p class="card-label">入力実績</p>
@@ -78,8 +100,14 @@ onMounted(() => {
         </section>
         <section class="summary-card">
           <p class="card-label">確定売上</p>
-          <strong>{{ dashboard.summary.confirmedMonthCount ? formatMoneyCompact(dashboard.summary.confirmedSalesYen) : '未入力' }}</strong>
-          <small class="card-note">入力済み {{ dashboard.summary.confirmedMonthCount }} / 12か月</small>
+          <strong>{{
+            dashboard.summary.confirmedMonthCount
+              ? formatMoneyCompact(dashboard.summary.confirmedSalesYen)
+              : '未入力'
+          }}</strong>
+          <small class="card-note"
+            >入力済み {{ dashboard.summary.confirmedMonthCount }} / 12か月</small
+          >
         </section>
         <section class="summary-card">
           <p class="card-label">確定売上の達成率</p>

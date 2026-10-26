@@ -273,7 +273,7 @@ export class EntryService {
   private getRateMap(context: EntryContext): Map<number, number> {
     return new Map(
       this.rates
-        .listEffectiveCommon(context.monthlyPeriod.startDate)
+        .listEffective(context.monthlyPeriod.startDate, context.facility.id)
         .map((rate) => [rate.nursingCategoryId, rate.amountYen])
     );
   }

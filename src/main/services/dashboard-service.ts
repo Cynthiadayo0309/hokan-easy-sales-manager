@@ -68,7 +68,10 @@ export class DashboardService {
   getAnnual(input: { year: number }): AnnualDashboard {
     const year = assertYear(input.year);
     const monthlyDashboards = Array.from({ length: 12 }, (_, monthIndex) =>
-      this.buildMonthly(`${year}-${String(monthIndex + 1).padStart(2, '0')}-01`, false)
+      this.buildMonthly(
+        new Date(Date.UTC(year, monthIndex + 8, 1)).toISOString().slice(0, 10),
+        false
+      )
     );
     const monthlyRows = monthlyDashboards.map(toAnnualMonthlyRow);
     const facilityRows = buildAnnualFacilityRows(monthlyDashboards);
@@ -483,7 +486,7 @@ function getDaysInMonth(targetMonth: string): number {
 }
 
 function assertYear(year: number): number {
-  if (!Number.isInteger(year) || year < 1000 || year > 9999) {
+  if (!Number.isInteger(year) || year < 1000 || year > 9998) {
     throw new Error('YEAR_INVALID');
   }
   return year;
